@@ -13,8 +13,8 @@ name = "arch-audit"
 
 [dependencies]
 alpm = "^0.2"
-curl = "*"
+curl = "^0.3"
 env_logger = "^0.3"
-json = "*"
-log = "*"
+log = "^0.3"
+json = "^0.10"
 select = "^0.3"
