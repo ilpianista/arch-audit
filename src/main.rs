@@ -52,7 +52,7 @@ fn main() {
                     cve: td.text().split_whitespace().filter(|s| s.starts_with("CVE")).map(|s| s.to_string()).collect(),
                     version: {
                         let v = tds.next().next().next().next().next().next().next().next().first().unwrap().text().trim().to_string();
-                        if !v.is_empty() && v != "?".to_string() { Some(v) } else { None }
+                        if !v.is_empty() && v != "?".to_string() && v != "-".to_string() { Some(v) } else { None }
                     },
                 };
 
