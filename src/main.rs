@@ -47,20 +47,26 @@ fn main() {
 
         match tds.first() {
             Some(td) => {
-                let pkgname = tds.next().next().first().unwrap().text().trim().to_string();
+                let mut next = tds.next().next();
+                let pkgname = next.first().unwrap().text().trim().to_string();
+                next = next.next().next().next().next().next().next();
                 let info = CVEInfo {
                     cve: td.text().split_whitespace().filter(|s| s.starts_with("CVE")).map(|s| s.to_string()).collect(),
                     version: {
-                        let v = tds.next().next().next().next().next().next().next().next().first().unwrap().text().trim().to_string();
+                        let v = next.first().unwrap().text().trim().to_string();
                         if !v.is_empty() && v != "?".to_string() && v != "-".to_string() { Some(v) } else { None }
                     },
                 };
+                next = next.next().next().next().next();
+                let status = next.first().unwrap().text().trim().to_string();
 
-                if !infos.contains_key(&pkgname) {
-                    infos.insert(pkgname.clone(), Vec::new());
+                if !status.starts_with("Invalid") && !status.starts_with("Not Affected") {
+                  if !infos.contains_key(&pkgname) {
+                      infos.insert(pkgname.clone(), Vec::new());
+                  }
+
+                  infos.get_mut(&pkgname).unwrap().push(info);
                 }
-
-                infos.get_mut(&pkgname).unwrap().push(info);
             },
             None => {},
         };
