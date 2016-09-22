@@ -1,0 +1,12 @@
+[package]
+name = "arch-audit"
+version = "0.1.0"
+authors = ["Andrea Scarpino <me@andreascarpino.it>"]
+
+[dependencies]
+alpm = "^0.2"
+curl = "*"
+env_logger = "^0.3"
+json = "*"
+log = "*"
+select = "^0.3"
