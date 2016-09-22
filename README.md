@@ -1,5 +1,6 @@
 # arch-audit
 
+[![crats.io](https://img.shields.io/crates/v/arch-audit.svg)](https://crates.io/crates/arch-audit)
 [![Build Status](https://travis-ci.org/ilpianista/arch-audit.svg?branch=master)](https://travis-ci.org/ilpianista/arch-audit)
 
 [pkg-audit]()-like utility for [Arch Linux](https://archlinux.org).
