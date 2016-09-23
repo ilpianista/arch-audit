@@ -11,16 +11,21 @@ Uses data collected by the awesome [Arch CVE Monitoring Team](https://wiki.archl
 
 ## Installation
 
+### From AUR
+
+The PKGBUILD is available [on AUR](https://aur.archlinux.org/packages/arch-audit).
+After the installation just execute arch-audit.
+
+### From sources
+
     git clone https://github.com/ilpianista/arch-audit
     cd arch-audit
     cargo build
-
-## Usage
-
     cargo run
 
 ## Example output
 
+    $ arch-audit
     Package wpa_supplicant is affected by ["CVE-2016-4477", "CVE-2016-4476"]. VULNERABLE!
     Package libtiff is affected by ["CVE-2015-7554", "CVE-2015-8683"]. VULNERABLE!
     Package openssl is affected by ["CVE-2016-2177", "CVE-2016-2178", "CVE-2016-2179", "CVE-2016-2180", "CVE-2016-2181", "CVE-2016-2182", "CVE-2016-2183", "CVE-2016-6302", "CVE-2016-6303", "CVE-2016-6304", "CVE-2016-6306"]. Update to 1.0.2.i-1!
