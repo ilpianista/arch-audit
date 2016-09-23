@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use std::str;
 
 static mut upgradable_only: bool = false;
-static mut quiet: bool = false;
+static mut quiet: u64 = 0;
 
 #[derive(Debug)]
 struct ASA {
@@ -33,6 +33,7 @@ fn main() {
                         .arg(Arg::with_name("quiet")
                              .short("q")
                              .long("quiet")
+                             .multiple(true)
                              .help("Show only vulnerable package names and their versions"))
                         .arg(Arg::with_name("upgradable")
                              .short("u")
@@ -42,7 +43,7 @@ fn main() {
 
     unsafe {
         upgradable_only = args.is_present("upgradable");
-        quiet = args.is_present("quiet");
+        quiet = args.occurrences_of("quiet");
     }
 
     let mut wikipage = String::new();
@@ -123,15 +124,17 @@ fn print_asa(pkgname: &String, cve: &Vec<String>, version: Option<String>) {
     unsafe {
         match version {
             Some(v) => {
-                if quiet {
+                if quiet == 1 {
                     println!("{}>={}", pkgname, v);
+                } else if quiet == 2 {
+                    println!("{}", pkgname);
                 } else {
                     println!("{}. Update to {}!", msg, v);
                 }
             }
             None => {
                 if !upgradable_only {
-                    if quiet {
+                    if quiet > 0 {
                         println!("{}", pkgname);
                     } else {
                         println!("{}. VULNERABLE!", msg);
