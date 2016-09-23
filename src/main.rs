@@ -1,4 +1,5 @@
 extern crate alpm;
+extern crate clap;
 extern crate curl;
 extern crate env_logger;
 #[macro_use]
@@ -7,6 +8,7 @@ extern crate json;
 extern crate log;
 extern crate select;
 
+use clap::{Arg, App};
 use curl::easy::Easy;
 use select::document::Document;
 use select::predicate::Name;
@@ -22,6 +24,16 @@ struct CVEInfo {
 
 fn main() {
     env_logger::init().unwrap();
+
+    let args = App::new("arch-audit")
+                        .version("0.1.1")
+                        .arg(Arg::with_name("upgradable")
+                             .short("u")
+                             .long("upgradable")
+                             .help("Show only packages that have already been fixed"))
+                        .get_matches();
+
+    let upgradable_only = args.is_present("upgradable");
 
     let mut wikipage = String::new();
     {
@@ -86,7 +98,11 @@ fn main() {
                                 _ => {},
                             };
                         },
-                        None => { println!("Package {} is affected by {:?}. VULNERABLE!", pkg, cve.cve) },
+                        None => {
+                            if !upgradable_only {
+                                println!("Package {} is affected by {:?}. VULNERABLE!", pkg, cve.cve)
+                            }
+                        },
                     };
                 };
             },
