@@ -3,7 +3,7 @@
 [![crats.io](https://img.shields.io/crates/v/arch-audit.svg)](https://crates.io/crates/arch-audit)
 [![Build Status](https://travis-ci.org/ilpianista/arch-audit.svg?branch=master)](https://travis-ci.org/ilpianista/arch-audit)
 
-[pkg-audit]()-like utility for [Arch Linux](https://archlinux.org).
+[pkg-audit](https://www.freebsd.org/cgi/man.cgi?query=pkg-audit&sektion=8)-like utility for [Arch Linux](https://archlinux.org).
 
 Uses data collected by the awesome [Arch CVE Monitoring Team](https://wiki.archlinux.org/index.php/Arch_CVE_Monitoring_Team).
 
@@ -14,7 +14,8 @@ Uses data collected by the awesome [Arch CVE Monitoring Team](https://wiki.archl
 ### From AUR
 
 The PKGBUILD is available [on AUR](https://aur.archlinux.org/packages/arch-audit).
-After the installation just execute arch-audit.
+
+After the installation just execute `arch-audit`.
 
 ### From sources
 
