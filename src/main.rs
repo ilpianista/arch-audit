@@ -20,7 +20,7 @@ static mut upgradable_only: bool = false;
 static mut quiet: bool = false;
 
 #[derive(Debug)]
-struct CVEInfo {
+struct ASA {
     cve: Vec<String>,
     version: Option<String>,
 }
@@ -72,7 +72,7 @@ fn main() {
                 let mut next = tds.next().next();
                 let pkgname = next.first().unwrap().text().trim().to_string();
                 next = next.next().next().next().next().next().next();
-                let info = CVEInfo {
+                let info = ASA {
                     cve: td.text().split_whitespace().filter(|s| s.starts_with("CVE")).map(|s| s.to_string()).collect(),
                     version: {
                         let v = next.first().unwrap().text().trim().to_string();
