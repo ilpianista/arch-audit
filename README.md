@@ -37,7 +37,7 @@ After the installation just execute `arch-audit`.
     Package jasper is affected by ["CVE-2015-5203"]. VULNERABLE!
 
     $ arch-audit --upgradable --quiet
-    openssl 1.0.2.i-1
-    giflib 5.2.1-1
-    xerces-c 3.2.1-1
+    openssl>=1.0.2.i-1
+    giflib>=5.2.1-1
+    xerces-c>=3.2.1-1
 

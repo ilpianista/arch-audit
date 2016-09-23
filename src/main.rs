@@ -16,6 +16,9 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::str;
 
+static mut upgradable_only: bool = false;
+static mut quiet: bool = false;
+
 #[derive(Debug)]
 struct CVEInfo {
     cve: Vec<String>,
@@ -37,8 +40,10 @@ fn main() {
                              .help("Show only packages that have already been fixed"))
                         .get_matches();
 
-    let upgradable_only = args.is_present("upgradable");
-    let quiet = args.is_present("quiet");
+    unsafe {
+        upgradable_only = args.is_present("upgradable");
+        quiet = args.is_present("quiet");
+    }
 
     let mut wikipage = String::new();
     {
@@ -99,25 +104,11 @@ fn main() {
                         Some(version) => {
                             info!("Comparing with fixed version {}", version);
                             match pacman.vercmp(v.clone(), version.clone()).unwrap() {
-                                Ordering::Less => {
-                                    if quiet {
-                                        println!("{} {}", pkg, version)
-                                    } else {
-                                        println!("Package {} is affected by {:?}. Update to {}!", pkg, cve.cve, version)
-                                    }
-                                },
+                                Ordering::Less => { print_asa(&pkg, &cve.cve, Some(version) ) },
                                 _ => {},
                             };
                         },
-                        None => {
-                            if !upgradable_only {
-                                if quiet {
-                                    println!("{}", pkg)
-                                } else {
-                                    println!("Package {} is affected by {:?}. VULNERABLE!", pkg, cve.cve)
-                                }
-                            }
-                        },
+                        None => { print_asa(&pkg, &cve.cve, None) },
                     };
                 };
             },
@@ -126,3 +117,27 @@ fn main() {
     }
 }
 
+fn print_asa(pkgname: &String, cve: &Vec<String>, version: Option<String>) {
+    let msg = format!("Package {} is affected by {:?}.", pkgname, cve);
+
+    unsafe {
+        match version {
+            Some(v) => {
+                if quiet {
+                    println!("{}>={}", pkgname, v);
+                } else {
+                    println!("{}. Update to {}!", msg, v);
+                }
+            }
+            None => {
+                if !upgradable_only {
+                    if quiet {
+                        println!("{}", pkgname);
+                    } else {
+                        println!("{}. VULNERABLE!", msg);
+                    }
+                }
+            }
+        }
+    }
+}
