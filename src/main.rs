@@ -27,6 +27,10 @@ fn main() {
 
     let args = App::new("arch-audit")
                         .version("0.1.1")
+                        .arg(Arg::with_name("quiet")
+                             .short("q")
+                             .long("quiet")
+                             .help("Show only vulnerable package names and their versions"))
                         .arg(Arg::with_name("upgradable")
                              .short("u")
                              .long("upgradable")
@@ -34,6 +38,7 @@ fn main() {
                         .get_matches();
 
     let upgradable_only = args.is_present("upgradable");
+    let quiet = args.is_present("quiet");
 
     let mut wikipage = String::new();
     {
@@ -94,13 +99,23 @@ fn main() {
                         Some(version) => {
                             info!("Comparing with fixed version {}", version);
                             match pacman.vercmp(v.clone(), version.clone()).unwrap() {
-                                Ordering::Less => { println!("Package {} is affected by {:?}. Update to {}!", pkg, cve.cve, version) },
+                                Ordering::Less => {
+                                    if quiet {
+                                        println!("{} {}", pkg, version)
+                                    } else {
+                                        println!("Package {} is affected by {:?}. Update to {}!", pkg, cve.cve, version)
+                                    }
+                                },
                                 _ => {},
                             };
                         },
                         None => {
                             if !upgradable_only {
-                                println!("Package {} is affected by {:?}. VULNERABLE!", pkg, cve.cve)
+                                if quiet {
+                                    println!("{}", pkg)
+                                } else {
+                                    println!("Package {} is affected by {:?}. VULNERABLE!", pkg, cve.cve)
+                                }
                             }
                         },
                     };

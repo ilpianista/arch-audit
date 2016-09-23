@@ -35,3 +35,9 @@ After the installation just execute `arch-audit`.
     Package xerces-c is affected by ["CVE-2015-0252"]. Update to 3.2.1-1!
     Package giflib is affected by ["CVE-2015-7555"]. Update to 5.2.1-1!
     Package jasper is affected by ["CVE-2015-5203"]. VULNERABLE!
+
+    $ arch-audit --upgradable --quiet
+    openssl 1.0.2.i-1
+    giflib 5.2.1-1
+    xerces-c 3.2.1-1
+
