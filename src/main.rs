@@ -2,7 +2,7 @@ extern crate alpm;
 extern crate clap;
 extern crate curl;
 extern crate env_logger;
-#[macro_use]
+extern crate itertools;
 extern crate json;
 #[macro_use]
 extern crate log;
@@ -10,14 +10,13 @@ extern crate select;
 
 use clap::{Arg, App};
 use curl::easy::Easy;
+use itertools::Itertools;
 use select::document::Document;
 use select::predicate::Name;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::default::Default;
 use std::str;
-
-static mut upgradable_only: bool = false;
-static mut quiet: u64 = 0;
 
 #[derive(Debug)]
 struct ASA {
@@ -25,11 +24,42 @@ struct ASA {
     version: Option<String>,
 }
 
+impl Default for ASA {
+    fn default() -> ASA {
+        ASA {
+            cve: Vec::new(),
+            version: None,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct Options {
+    format: Option<String>,
+    quiet: u64,
+    upgradable_only: bool,
+}
+
+impl Default for Options {
+    fn default() -> Options {
+        Options {
+            format: None,
+            quiet: 0,
+            upgradable_only: false
+        }
+    }
+}
+
 fn main() {
     env_logger::init().unwrap();
 
     let args = App::new("arch-audit")
                         .version("0.1.1")
+                        .arg(Arg::with_name("format")
+                             .short("f")
+                             .long("format")
+                             .takes_value(true)
+                             .help("Specify a format to control the output. Placeholders are %n (pkgname) and %c (CVEs)"))
                         .arg(Arg::with_name("quiet")
                              .short("q")
                              .long("quiet")
@@ -41,10 +71,16 @@ fn main() {
                              .help("Show only packages that have already been fixed"))
                         .get_matches();
 
-    unsafe {
-        upgradable_only = args.is_present("upgradable");
-        quiet = args.occurrences_of("quiet");
-    }
+    let options = Options {
+        format: {
+            if args.is_present("format") {
+                Some(args.value_of("format").unwrap().to_string())
+            } else {
+                None
+            } },
+        quiet: args.occurrences_of("quiet"),
+        upgradable_only: args.is_present("upgradable"),
+    };
 
     let mut wikipage = String::new();
     {
@@ -105,11 +141,11 @@ fn main() {
                         Some(version) => {
                             info!("Comparing with fixed version {}", version);
                             match pacman.vercmp(v.clone(), version.clone()).unwrap() {
-                                Ordering::Less => { print_asa(&pkg, &cve.cve, Some(version) ) },
+                                Ordering::Less => { print_asa(&options, &pkg, cve.cve, Some(version) ) },
                                 _ => {},
                             };
                         },
-                        None => { print_asa(&pkg, &cve.cve, None) },
+                        None => { print_asa(&options, &pkg, cve.cve, None) },
                     };
                 };
             },
@@ -118,26 +154,30 @@ fn main() {
     }
 }
 
-fn print_asa(pkgname: &String, cve: &Vec<String>, version: Option<String>) {
+fn print_asa(options: &Options, pkgname: &String, cve: Vec<String>, version: Option<String>) {
     let msg = format!("Package {} is affected by {:?}", pkgname, cve);
 
-    unsafe {
-        match version {
-            Some(v) => {
-                if quiet == 1 {
-                    println!("{}>={}", pkgname, v);
-                } else if quiet >= 2 {
-                    println!("{}", pkgname);
-                } else {
-                    println!("{}. Update to {}!", msg, v);
+    match version {
+        Some(v) => {
+            if options.quiet == 1 {
+                println!("{}>={}", pkgname, v);
+            } else if options.quiet >= 2 {
+                println!("{}", pkgname);
+            } else {
+                match options.format {
+                    Some(ref f) => { println!("{}", f.replace("%n", pkgname).replace("%c", cve.iter().join(",").as_str())) },
+                    None => { println!("{}. Update to {}!", msg, v) },
                 }
             }
-            None => {
-                if !upgradable_only {
-                    if quiet > 0 {
-                        println!("{}", pkgname);
-                    } else {
-                        println!("{}. VULNERABLE!", msg);
+        }
+        None => {
+            if !options.upgradable_only {
+                if options.quiet > 0 {
+                    println!("{}", pkgname);
+                } else {
+                    match options.format {
+                        Some(ref f) => { println!("{}", f.replace("%n", pkgname).replace("%c", cve.iter().join(",").as_str())) },
+                        None => { println!("{}. VULNERABLE!", msg) },
                     }
                 }
             }
