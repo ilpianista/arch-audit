@@ -119,7 +119,7 @@ fn main() {
 }
 
 fn print_asa(pkgname: &String, cve: &Vec<String>, version: Option<String>) {
-    let msg = format!("Package {} is affected by {:?}.", pkgname, cve);
+    let msg = format!("Package {} is affected by {:?}", pkgname, cve);
 
     unsafe {
         match version {
