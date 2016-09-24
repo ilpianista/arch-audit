@@ -126,7 +126,7 @@ fn print_asa(pkgname: &String, cve: &Vec<String>, version: Option<String>) {
             Some(v) => {
                 if quiet == 1 {
                     println!("{}>={}", pkgname, v);
-                } else if quiet == 2 {
+                } else if quiet >= 2 {
                     println!("{}", pkgname);
                 } else {
                     println!("{}. Update to {}!", msg, v);
