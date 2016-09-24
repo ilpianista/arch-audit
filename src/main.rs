@@ -54,7 +54,7 @@ fn main() {
     env_logger::init().unwrap();
 
     let args = App::new("arch-audit")
-                        .version("0.1.1")
+                        .version("0.1.2")
                         .arg(Arg::with_name("format")
                              .short("f")
                              .long("format")
