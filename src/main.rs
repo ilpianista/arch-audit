@@ -72,11 +72,9 @@ fn main() {
                         .get_matches();
 
     let options = Options {
-        format: {
-            if args.is_present("format") {
-                Some(args.value_of("format").unwrap().to_string())
-            } else {
-                None
+        format: { match args.value_of("format") {
+            Some(f) => { Some(f.to_string()) },
+            None => { None },
             } },
         quiet: args.occurrences_of("quiet"),
         upgradable_only: args.is_present("upgradable"),
@@ -97,38 +95,40 @@ fn main() {
         transfer.perform().unwrap();
     }
 
-    let json = json::parse(wikipage.as_str()).unwrap();
-    let document = Document::from(json["parse"]["text"]["*"].as_str().unwrap());
-
     let mut infos: HashMap<String, Vec<_>> = HashMap::new();
-    for tr in document.find(Name("tbody")).find(Name("tr")).iter() {
-        let tds = tr.find(Name("td"));
+    {
+        let json = json::parse(wikipage.as_str()).unwrap();
+        let document = Document::from(json["parse"]["text"]["*"].as_str().unwrap());
 
-        match tds.first() {
-            Some(td) => {
-                let mut next = tds.next().next();
-                let pkgname = next.first().unwrap().text().trim().to_string();
-                next = next.next().next().next().next().next().next();
-                let info = ASA {
-                    cve: td.text().split_whitespace().filter(|s| s.starts_with("CVE")).map(|s| s.to_string()).collect(),
-                    version: {
-                        let v = next.first().unwrap().text().trim().to_string();
-                        if !v.is_empty() && v != "?".to_string() && v != "-".to_string() { Some(v) } else { None }
-                    },
-                };
-                next = next.next().next().next().next();
-                let status = next.first().unwrap().text().trim().to_string();
+        for tr in document.find(Name("tbody")).find(Name("tr")).iter() {
+            let tds = tr.find(Name("td"));
 
-                if !status.starts_with("Invalid") && !status.starts_with("Not Affected") {
-                  if !infos.contains_key(&pkgname) {
-                      infos.insert(pkgname.clone(), Vec::new());
-                  }
+            match tds.first() {
+                Some(td) => {
+                    let mut next = tds.next().next();
+                    let pkgname = next.first().unwrap().text().trim().to_string();
+                    next = next.next().next().next().next().next().next();
+                    let info = ASA {
+                        cve: td.text().split_whitespace().filter(|s| s.starts_with("CVE")).map(|s| s.to_string()).collect(),
+                        version: {
+                            let v = next.first().unwrap().text().trim().to_string();
+                            if !v.is_empty() && v != "?".to_string() && v != "-".to_string() { Some(v) } else { None }
+                        },
+                    };
+                    next = next.next().next().next().next();
+                    let status = next.first().unwrap().text().trim().to_string();
 
-                  infos.get_mut(&pkgname).unwrap().push(info);
-                }
-            },
-            None => {},
-        };
+                    if !status.starts_with("Invalid") && !status.starts_with("Not Affected") {
+                      if !infos.contains_key(&pkgname) {
+                          infos.insert(pkgname.clone(), Vec::new());
+                      }
+
+                      infos.get_mut(&pkgname).unwrap().push(info);
+                    }
+                },
+                None => {},
+            };
+        }
     }
 
     let pacman = alpm::Alpm::new().unwrap();
