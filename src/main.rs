@@ -119,7 +119,7 @@ fn main() {
                     next = next.next().next().next().next();
                     let status = next.first().unwrap().text().trim().to_string();
 
-                    if !status.starts_with("Invalid") && !status.starts_with("Not Affected") {
+                    if !status.starts_with("Not Affected") {
                         match infos.entry(pkgname) {
                             Occupied(c) => { c.into_mut() },
                             Vacant(c) => { c.insert(vec![]) },
