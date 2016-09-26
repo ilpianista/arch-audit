@@ -15,6 +15,7 @@ use select::document::Document;
 use select::predicate::Name;
 use std::cmp::Ordering;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::default::Default;
 use std::str;
 
@@ -119,11 +120,10 @@ fn main() {
                     let status = next.first().unwrap().text().trim().to_string();
 
                     if !status.starts_with("Invalid") && !status.starts_with("Not Affected") {
-                      if !infos.contains_key(&pkgname) {
-                          infos.insert(pkgname.clone(), Vec::new());
-                      }
-
-                      infos.get_mut(&pkgname).unwrap().push(info);
+                        match infos.entry(pkgname) {
+                            Occupied(c) => { c.into_mut() },
+                            Vacant(c) => { c.insert(vec![]) },
+                        }.push(info);
                     }
                 },
                 None => {},
