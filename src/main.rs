@@ -19,7 +19,8 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::default::Default;
 use std::str;
 
-#[derive(Debug)]
+
+#[derive(Debug,Clone)]
 struct ASA {
     cve: Vec<String>,
     version: Option<String>,
@@ -133,25 +134,97 @@ fn main() {
 
     let pacman = alpm::Alpm::new().unwrap();
     for (pkg, cves) in infos {
-        match pacman.query_package_version(pkg.clone()) {
-            Ok(v) => {
-                info!("Found installed version {} for package {}", v, pkg);
-                for cve in cves {
-                    match cve.version {
-                        Some(version) => {
-                            info!("Comparing with fixed version {}", version);
-                            match pacman.vercmp(v.clone(), version.clone()).unwrap() {
-                                Ordering::Less => { print_asa(&options, &pkg, cve.cve, Some(version) ) },
-                                _ => {},
-                            };
-                        },
-                        None => { print_asa(&options, &pkg, cve.cve, None) },
-                    };
-                };
-            },
-            Err(_) => { debug!("Package {} not installed", pkg) },
+        let pkg_cves = get_asas_for_package_by_version(&pacman, &pkg, &cves);
+        
+        let (relevant_cves, version) = cves_with_relevant_version(pkg_cves, &pacman);
+        
+        if !relevant_cves.is_empty() {
+            print_asa(&options, &pkg, relevant_cves, version);
         }
     }
+}
+
+/// gets a map from version to ASAs for a specific package, returns list of CVEs for that
+/// package and a version, which is the most updated
+fn cves_with_relevant_version(pkg_cves: HashMap<Option<String>, Vec<ASA>>, pacman: &alpm::Alpm) -> (Vec<String>, Option<String>) {
+    let mut cves: Vec<String> = Vec::new();
+    // the newest version, which fixes all/most ? cves
+    let mut version: Option<String> = None;
+    for (v, asas) in pkg_cves {
+        for asa in asas {
+            for cve in asa.cve {
+                cves.push(cve);
+            }
+        }
+        match v {
+            Some(ref v) => {
+                version = match version {
+                    None => Some(v.clone()),
+                    Some(ref vv) => {
+                        match pacman.vercmp(v.clone(), vv.clone()).unwrap() {
+                            Ordering::Greater => Some(v.clone()),
+                            _ => version.clone()
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    (cves, version)
+}
+
+#[test]
+fn test_cves_with_relevant_version() {
+    let mut map = HashMap::new();
+    map.insert(Some("1.0".to_string()), vec![ASA{cve: vec!["a".to_string(), "b".to_string()], version: Some("1.0".to_string())}]);
+    map.insert(Some("2.0".to_string()), vec![ASA{cve: vec!["c".to_string()], version: Some("2.0".to_string())}]);
+    map.insert(Some("3.0".to_string()), vec![ASA{cve: Vec::new(), version: Some("3.0".to_string())}]);
+
+    let pacman = alpm::Alpm::new().unwrap();
+    let (mut cves, version) = cves_with_relevant_version(map, &pacman);
+    
+    cves.sort();
+    assert_eq!(cves, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+    assert_eq!(version, Some("3.0".to_string()));
+}
+
+/// creates a map between version and ASAs from a list of ASAs
+fn get_asas_for_package_by_version(pacman: &alpm::Alpm, pkg: &String, cves: &Vec<ASA>) -> HashMap<Option<String>, Vec<ASA>> {
+    let mut pkg_cves: HashMap<Option<String>, Vec<ASA>> = HashMap::new();
+    match pacman.query_package_version(pkg.clone()) {
+        Ok(v) => {
+            info!("Found installed version {} for package {}", v, pkg);
+            for cve in cves {
+                match cve.version {
+                    Some(ref version) => {
+                        info!("Comparing with fixed version {}", version);
+                        match pacman.vercmp(v.clone(), version.clone()).unwrap() {
+                            Ordering::Less => {
+                                let mut vec = match pkg_cves.get_mut(&Some(v.clone())) {
+                                    Some(v) => v.clone(),
+                                    None => Vec::new(),
+                                };
+                                vec.push(cve.clone());
+                                pkg_cves.insert(Some(version.clone()), vec);
+                            },
+                            _ => {},
+                        };
+                    },
+                    None => {
+                        let mut vec = match pkg_cves.get_mut(&None) {
+                            Some(v) => v.clone(),
+                            None => Vec::new(),
+                        };
+                        vec.push(cve.clone());
+                        pkg_cves.insert(None, vec);
+                    },
+                };
+            };
+        },
+        Err(_) => { debug!("Package {} not installed", pkg) },
+    }
+    pkg_cves
 }
 
 fn print_asa(options: &Options, pkgname: &String, cve: Vec<String>, version: Option<String>) {
