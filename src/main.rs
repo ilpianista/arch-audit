@@ -29,7 +29,7 @@ struct ASA {
 impl Default for ASA {
     fn default() -> ASA {
         ASA {
-            cve: Vec::new(),
+            cve: vec![],
             version: None,
         }
     }
@@ -147,7 +147,7 @@ fn main() {
 /// gets a map from version to ASAs for a specific package, returns list of CVEs for that
 /// package and a version, which is the most updated
 fn cves_with_relevant_version(pkg_cves: HashMap<Option<String>, Vec<ASA>>, pacman: &alpm::Alpm) -> (Vec<String>, Option<String>) {
-    let mut cves: Vec<String> = Vec::new();
+    let mut cves: Vec<String> = vec![];
     // the newest version, which fixes all/most ? cves
     let mut version: Option<String> = None;
     for (v, asas) in pkg_cves {
@@ -179,7 +179,7 @@ fn test_cves_with_relevant_version() {
     let mut map = HashMap::new();
     map.insert(Some("1.0".to_string()), vec![ASA{cve: vec!["a".to_string(), "b".to_string()], version: Some("1.0".to_string())}]);
     map.insert(Some("2.0".to_string()), vec![ASA{cve: vec!["c".to_string()], version: Some("2.0".to_string())}]);
-    map.insert(Some("3.0".to_string()), vec![ASA{cve: Vec::new(), version: Some("3.0".to_string())}]);
+    map.insert(Some("3.0".to_string()), vec![ASA{cve: vec![], version: Some("3.0".to_string())}]);
 
     let pacman = alpm::Alpm::new().unwrap();
     let (mut cves, version) = cves_with_relevant_version(map, &pacman);
