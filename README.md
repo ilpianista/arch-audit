@@ -28,26 +28,24 @@ After the installation just execute `arch-audit`.
 ## Example output
 
     $ arch-audit
-    Package libwmf is affected by ["CVE-2009-1364", "CVE-2006-3376", "CVE-2007-0455", "CVE-2007-2756", "CVE-2007-3472", "CVE-2007-3473", "CVE-2007-3477", "CVE-2009-3546", "CVE-2015-0848", "CVE-2015-4588", "CVE-2015-4695", "CVE-2015-4696"]. VULNERABLE!
-    Package libtiff is affected by ["CVE-2016-5875", "CVE-2016-5314", "CVE-2016-5315", "CVE-2016-5316", "CVE-2016-5317", "CVE-2016-5320", "CVE-2016-5321", "CVE-2016-5322", "CVE-2016-5323", "CVE-2016-5102", "CVE-2016-3991", "CVE-2016-3990", "CVE-2016-3945", "CVE-2016-3658", "CVE-2016-3634", "CVE-2016-3633", "CVE-2016-3632", "CVE-2016-3631", "CVE-2016-3625", "CVE-2016-3624", "CVE-2016-3623", "CVE-2016-3622", "CVE-2016-3621", "CVE-2016-3620", "CVE-2016-3619", "CVE-2016-3186", "CVE-2015-8668", "CVE-2015-7313", "CVE-2014-8130", "CVE-2014-8127", "CVE-2010-2596", "CVE-2016-6223"]. VULNERABLE!
-    Package libtiff is affected by ["CVE-2015-7554", "CVE-2015-8683"]. VULNERABLE!
-    Package jasper is affected by ["CVE-2015-8751"]. VULNERABLE!
-    Package jasper is affected by ["CVE-2015-5221"]. VULNERABLE!
-    Package jasper is affected by ["CVE-2015-5203"]. VULNERABLE!
-    Package lib32-openssl is affected by ["CVE-2016-2177", "CVE-2016-2178", "CVE-2016-2179", "CVE-2016-2180", "CVE-2016-2181", "CVE-2016-2182", "CVE-2016-2183", "CVE-2016-6302", "CVE-2016-6303", "CVE-2016-6304", "CVE-2016-6306"]. Update to 1:1.0.2.i-1!
+    Package c-ares is affected by ["CVE-2016-5180"]. VULNERABLE!
+    Package gdk-pixbuf2 is affected by ["CVE-2016-6352"]. VULNERABLE!
     Package wireshark-cli is affected by ["CVE-2016-7180", "CVE-2016-7175", "CVE-2016-7176", "CVE-2016-7177", "CVE-2016-7178", "CVE-2016-7179"]. Update to 2.2.0-1!
+    Package lib32-openssl is affected by ["CVE-2016-7052", "CVE-2016-2177", "CVE-2016-2178", "CVE-2016-2179", "CVE-2016-2180", "CVE-2016-2181", "CVE-2016-2182", "CVE-2016-2183", "CVE-2016-6302", "CVE-2016-6303", "CVE-2016-6304", "CVE-2016-6306"]. Update to 1:1.0.2.j-1!
+    Package openssl is affected by ["CVE-2016-2177", "CVE-2016-2178", "CVE-2016-2179", "CVE-2016-2180", "CVE-2016-2181", "CVE-2016-2182", "CVE-2016-2183", "CVE-2016-6302", "CVE-2016-6303", "CVE-2016-6304", "CVE-2016-6306", "CVE-2016-7052"]. Update to 1.0.2.j-1!
+    Package libtiff is affected by ["CVE-2016-5875", "CVE-2016-5314", "CVE-2016-5315", "CVE-2016-5316", "CVE-2016-5317", "CVE-2016-5320", "CVE-2016-5321", "CVE-2016-5322", "CVE-2016-5323", "CVE-2016-5102", "CVE-2016-3991", "CVE-2016-3990", "CVE-2016-3945", "CVE-2016-3658", "CVE-2016-3634", "CVE-2016-3633", "CVE-2016-3632", "CVE-2016-3631", "CVE-2016-3625", "CVE-2016-3624", "CVE-2016-3623", "CVE-2016-3622", "CVE-2016-3621", "CVE-2016-3620", "CVE-2016-3619", "CVE-2016-3186", "CVE-2015-8668", "CVE-2015-7313", "CVE-2014-8130", "CVE-2014-8127", "CVE-2010-2596", "CVE-2016-6223", "CVE-2015-7554", "CVE-2015-8683"]. VULNERABLE!
+    Package libusbmuxd is affected by ["CVE-2016-5104"]. VULNERABLE!
+    Package libimobiledevice is affected by ["CVE-2016-5104"]. VULNERABLE!
     Package wpa_supplicant is affected by ["CVE-2016-4477", "CVE-2016-4476"]. VULNERABLE!
-    Package openssl is affected by ["CVE-2016-2177", "CVE-2016-2178", "CVE-2016-2179", "CVE-2016-2180", "CVE-2016-2181", "CVE-2016-2182", "CVE-2016-2183", "CVE-2016-6302", "CVE-2016-6303", "CVE-2016-6304", "CVE-2016-6306"]. Update to 1.0.2.i-1!
     Package crypto++ is affected by ["CVE-2016-7420"]. VULNERABLE!
     Package bzip2 is affected by ["CVE-2016-3189"]. VULNERABLE!
-    Package libimobiledevice is affected by ["CVE-2016-5104"]. VULNERABLE!
-    Package libusbmuxd is affected by ["CVE-2016-5104"]. VULNERABLE!
-    Package gdk-pixbuf2 is affected by ["CVE-2016-6352"]. VULNERABLE!
+    Package jasper is affected by ["CVE-2015-8751", "CVE-2015-5221", "CVE-2015-5203"]. VULNERABLE!
+    Package libwmf is affected by ["CVE-2009-1364", "CVE-2006-3376", "CVE-2007-0455", "CVE-2007-2756", "CVE-2007-3472", "CVE-2007-3473", "CVE-2007-3477", "CVE-2009-3546", "CVE-2015-0848", "CVE-2015-4588", "CVE-2015-4695", "CVE-2015-4696"]. VULNERABLE!
 
     $ arch-audit --upgradable --quiet
     wireshark-cli>=2.2.0-1
-    openssl>=1.0.2.i-1
-    lib32-openssl>=1:1.0.2.i-1
+    openssl>=1.0.2.j-1
+    lib32-openssl>=1:1.0.2.j-1
 
     $ arch-audit -uf "%n|%c"
     openssl|CVE-2016-2177,CVE-2016-2178,CVE-2016-2179,CVE-2016-2180,CVE-2016-2181,CVE-2016-2182,CVE-2016-2183,CVE-2016-6302,CVE-2016-6303,CVE-2016-6304,CVE-2016-6306
