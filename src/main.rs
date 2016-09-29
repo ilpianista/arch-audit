@@ -20,7 +20,7 @@ use std::default::Default;
 use std::str;
 
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 struct ASA {
     cve: Vec<String>,
     version: Option<String>,
@@ -135,9 +135,9 @@ fn main() {
     let pacman = alpm::Alpm::new().unwrap();
     for (pkg, cves) in infos {
         let pkg_cves = get_asas_for_package_by_version(&pacman, &pkg, &cves);
-        
+
         let (relevant_cves, version) = cves_with_relevant_version(pkg_cves, &pacman);
-        
+
         if !relevant_cves.is_empty() {
             print_asa(&options, &pkg, relevant_cves, version);
         }
@@ -183,7 +183,7 @@ fn test_cves_with_relevant_version() {
 
     let pacman = alpm::Alpm::new().unwrap();
     let (mut cves, version) = cves_with_relevant_version(map, &pacman);
-    
+
     cves.sort();
     assert_eq!(cves, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
     assert_eq!(version, Some("3.0".to_string()));
@@ -201,23 +201,19 @@ fn get_asas_for_package_by_version(pacman: &alpm::Alpm, pkg: &String, cves: &Vec
                         info!("Comparing with fixed version {}", version);
                         match pacman.vercmp(v.clone(), version.clone()).unwrap() {
                             Ordering::Less => {
-                                let mut vec = match pkg_cves.get_mut(&Some(v.clone())) {
-                                    Some(v) => v.clone(),
-                                    None => Vec::new(),
-                                };
-                                vec.push(cve.clone());
-                                pkg_cves.insert(Some(version.clone()), vec);
+                                match pkg_cves.entry(Some(version.clone())) {
+                                    Occupied(c) => { c.into_mut() },
+                                    Vacant(c) => { c.insert(vec![]) },
+                                }.push(cve.clone());
                             },
                             _ => {},
                         };
                     },
                     None => {
-                        let mut vec = match pkg_cves.get_mut(&None) {
-                            Some(v) => v.clone(),
-                            None => Vec::new(),
-                        };
-                        vec.push(cve.clone());
-                        pkg_cves.insert(None, vec);
+                        match pkg_cves.entry(None) {
+                            Occupied(c) => { c.into_mut() },
+                            Vacant(c) => { c.insert(vec![]) },
+                        }.push(cve.clone());
                     },
                 };
             };
