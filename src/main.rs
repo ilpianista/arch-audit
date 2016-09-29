@@ -57,7 +57,7 @@ fn main() {
     env_logger::init().unwrap();
 
     let args = App::new("arch-audit")
-                        .version("0.1.2")
+                        .version("0.1.3")
                         .arg(Arg::with_name("dbpath")
                              .short("b")
                              .long("dbpath")
