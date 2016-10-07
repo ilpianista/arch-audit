@@ -18,6 +18,7 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::default::Default;
 use std::ffi::CString;
+use std::process::exit;
 use std::str;
 
 
@@ -100,7 +101,10 @@ fn main() {
             wikipage.push_str(str::from_utf8(data).unwrap());
             Ok(data.len())
         }).unwrap();
-        transfer.perform().unwrap();
+        match transfer.perform() {
+            Ok(_) => {},
+            Err(_) => { println!("Cannot fetch data, please check your network connection!"); exit(1) },
+        };
     }
 
     let mut infos: HashMap<String, Vec<_>> = HashMap::new();
