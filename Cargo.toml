@@ -12,8 +12,8 @@ keywords = ["archlinux", "security"]
 name = "arch-audit"
 
 [dependencies]
-alpm = "^0.3"
-clap = "2"
+alpm = "^0.4"
+clap = "^2"
 curl = "^0.3"
 env_logger = "^0.3"
 itertools = "^0.4"

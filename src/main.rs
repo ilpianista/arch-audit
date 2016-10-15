@@ -17,7 +17,6 @@ use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::default::Default;
-use std::ffi::CString;
 use std::process::exit;
 use std::str;
 
@@ -143,7 +142,7 @@ fn main() {
     }
 
     let pacman = match args.value_of("dbpath") {
-        Some(path) => { alpm::Alpm::with_dbpath(CString::new(path).unwrap()).unwrap() },
+        Some(path) => { alpm::Alpm::with_dbpath(path.to_string()).unwrap() },
         None => { alpm::Alpm::new().unwrap() },
     };
 
