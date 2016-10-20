@@ -48,7 +48,7 @@ impl Default for Options {
         Options {
             format: None,
             quiet: 0,
-            upgradable_only: false
+            upgradable_only: false,
         }
     }
 }
@@ -57,33 +57,36 @@ fn main() {
     env_logger::init().unwrap();
 
     let args = App::new("arch-audit")
-                        .version("0.1.4")
-                        .arg(Arg::with_name("dbpath")
-                             .short("b")
-                             .long("dbpath")
-                             .takes_value(true)
-                             .help("Set an alternate database location"))
-                        .arg(Arg::with_name("format")
-                             .short("f")
-                             .long("format")
-                             .takes_value(true)
-                             .help("Specify a format to control the output. Placeholders are %n (pkgname) and %c (CVEs)"))
-                        .arg(Arg::with_name("quiet")
-                             .short("q")
-                             .long("quiet")
-                             .multiple(true)
-                             .help("Show only vulnerable package names and their versions"))
-                        .arg(Arg::with_name("upgradable")
-                             .short("u")
-                             .long("upgradable")
-                             .help("Show only packages that have already been fixed"))
-                        .get_matches();
+        .version("0.1.4")
+        .arg(Arg::with_name("dbpath")
+            .short("b")
+            .long("dbpath")
+            .takes_value(true)
+            .help("Set an alternate database location"))
+        .arg(Arg::with_name("format")
+            .short("f")
+            .long("format")
+            .takes_value(true)
+            .help("Specify a format to control the output. Placeholders are %n (pkgname) and %c \
+                   (CVEs)"))
+        .arg(Arg::with_name("quiet")
+            .short("q")
+            .long("quiet")
+            .multiple(true)
+            .help("Show only vulnerable package names and their versions"))
+        .arg(Arg::with_name("upgradable")
+            .short("u")
+            .long("upgradable")
+            .help("Show only packages that have already been fixed"))
+        .get_matches();
 
     let options = Options {
-        format: { match args.value_of("format") {
-            Some(f) => { Some(f.to_string()) },
-            None => { None },
-            } },
+        format: {
+            match args.value_of("format") {
+                Some(f) => Some(f.to_string()),
+                None => None,
+            }
+        },
         quiet: args.occurrences_of("quiet"),
         upgradable_only: args.is_present("upgradable"),
     };
@@ -91,18 +94,23 @@ fn main() {
     let mut wikipage = String::new();
     {
         info!("Downloading CVE wiki page...");
-        let wikipage_url = "https://wiki.archlinux.org/api.php?format=json&action=parse&page=CVE&section=5";
+        let wikipage_url = "https://wiki.archlinux.org/api.\
+                            php?format=json&action=parse&page=CVE&section=5";
 
         let mut easy = Easy::new();
         easy.url(wikipage_url).unwrap();
         let mut transfer = easy.transfer();
         transfer.write_function(|data| {
-            wikipage.push_str(str::from_utf8(data).unwrap());
-            Ok(data.len())
-        }).unwrap();
+                wikipage.push_str(str::from_utf8(data).unwrap());
+                Ok(data.len())
+            })
+            .unwrap();
         match transfer.perform() {
-            Ok(_) => {},
-            Err(_) => { println!("Cannot fetch data, please check your network connection!"); exit(1) },
+            Ok(_) => {}
+            Err(_) => {
+                println!("Cannot fetch data, please check your network connection!");
+                exit(1)
+            }
         };
     }
 
@@ -120,10 +128,18 @@ fn main() {
                     let pkgname = next.first().unwrap().text().trim().to_string();
                     next = next.next().next().next().next().next().next();
                     let info = ASA {
-                        cve: td.text().split_whitespace().filter(|s| s.starts_with("CVE")).map(|s| s.to_string()).collect(),
+                        cve: td.text()
+                            .split_whitespace()
+                            .filter(|s| s.starts_with("CVE"))
+                            .map(|s| s.to_string())
+                            .collect(),
                         version: {
                             let v = next.first().unwrap().text().trim().to_string();
-                            if !v.is_empty() && v != "?".to_string() && v != "-".to_string() { Some(v) } else { None }
+                            if !v.is_empty() && v != "?".to_string() && v != "-".to_string() {
+                                Some(v)
+                            } else {
+                                None
+                            }
                         },
                     };
                     next = next.next().next().next().next();
@@ -131,19 +147,20 @@ fn main() {
 
                     if !status.starts_with("Not Affected") {
                         match infos.entry(pkgname) {
-                            Occupied(c) => { c.into_mut() },
-                            Vacant(c) => { c.insert(vec![]) },
-                        }.push(info);
+                                Occupied(c) => c.into_mut(),
+                                Vacant(c) => c.insert(vec![]),
+                            }
+                            .push(info);
                     }
-                },
-                None => {},
+                }
+                None => {}
             };
         }
     }
 
     let pacman = match args.value_of("dbpath") {
-        Some(path) => { alpm::Alpm::with_dbpath(path.to_string()).unwrap() },
-        None => { alpm::Alpm::new().unwrap() },
+        Some(path) => alpm::Alpm::with_dbpath(path.to_string()).unwrap(),
+        None => alpm::Alpm::new().unwrap(),
     };
 
     for (pkg, cves) in infos {
@@ -159,7 +176,9 @@ fn main() {
 
 /// gets a map from version to ASAs for a specific package, returns list of CVEs for that
 /// package and a version, which is the most updated
-fn cves_with_relevant_version(pkg_cves: HashMap<Option<String>, Vec<ASA>>, pacman: &alpm::Alpm) -> (Vec<String>, Option<String>) {
+fn cves_with_relevant_version(pkg_cves: HashMap<Option<String>, Vec<ASA>>,
+                              pacman: &alpm::Alpm)
+                              -> (Vec<String>, Option<String>) {
     let mut cves: Vec<String> = vec![];
     // the newest version, which fixes all/most ? cves
     let mut version: Option<String> = None;
@@ -176,7 +195,7 @@ fn cves_with_relevant_version(pkg_cves: HashMap<Option<String>, Vec<ASA>>, pacma
                     Some(ref vv) => {
                         match pacman.vercmp(v.clone(), vv.clone()).unwrap() {
                             Ordering::Greater => Some(v.clone()),
-                            _ => version.clone()
+                            _ => version.clone(),
                         }
                     }
                 }
@@ -190,20 +209,36 @@ fn cves_with_relevant_version(pkg_cves: HashMap<Option<String>, Vec<ASA>>, pacma
 #[test]
 fn test_cves_with_relevant_version() {
     let mut map = HashMap::new();
-    map.insert(Some("1.0".to_string()), vec![ASA{cve: vec!["a".to_string(), "b".to_string()], version: Some("1.0".to_string())}]);
-    map.insert(Some("2.0".to_string()), vec![ASA{cve: vec!["c".to_string()], version: Some("2.0".to_string())}]);
-    map.insert(Some("3.0".to_string()), vec![ASA{cve: vec![], version: Some("3.0".to_string())}]);
+    map.insert(Some("1.0".to_string()),
+               vec![ASA {
+                        cve: vec!["a".to_string(), "b".to_string()],
+                        version: Some("1.0".to_string()),
+                    }]);
+    map.insert(Some("2.0".to_string()),
+               vec![ASA {
+                        cve: vec!["c".to_string()],
+                        version: Some("2.0".to_string()),
+                    }]);
+    map.insert(Some("3.0".to_string()),
+               vec![ASA {
+                        cve: vec![],
+                        version: Some("3.0".to_string()),
+                    }]);
 
     let pacman = alpm::Alpm::new().unwrap();
     let (mut cves, version) = cves_with_relevant_version(map, &pacman);
 
     cves.sort();
-    assert_eq!(cves, vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+    assert_eq!(cves,
+               vec!["a".to_string(), "b".to_string(), "c".to_string()]);
     assert_eq!(version, Some("3.0".to_string()));
 }
 
 /// creates a map between version and ASAs from a list of ASAs
-fn get_asas_for_package_by_version(pacman: &alpm::Alpm, pkg: &String, cves: &Vec<ASA>) -> HashMap<Option<String>, Vec<ASA>> {
+fn get_asas_for_package_by_version(pacman: &alpm::Alpm,
+                                   pkg: &String,
+                                   cves: &Vec<ASA>)
+                                   -> HashMap<Option<String>, Vec<ASA>> {
     let mut pkg_cves: HashMap<Option<String>, Vec<ASA>> = HashMap::new();
     match pacman.query_package_version(pkg.clone()) {
         Ok(v) => {
@@ -215,23 +250,25 @@ fn get_asas_for_package_by_version(pacman: &alpm::Alpm, pkg: &String, cves: &Vec
                         match pacman.vercmp(v.clone(), version.clone()).unwrap() {
                             Ordering::Less => {
                                 match pkg_cves.entry(Some(version.clone())) {
-                                    Occupied(c) => { c.into_mut() },
-                                    Vacant(c) => { c.insert(vec![]) },
-                                }.push(cve.clone());
-                            },
-                            _ => {},
+                                        Occupied(c) => c.into_mut(),
+                                        Vacant(c) => c.insert(vec![]),
+                                    }
+                                    .push(cve.clone());
+                            }
+                            _ => {}
                         };
-                    },
+                    }
                     None => {
                         match pkg_cves.entry(None) {
-                            Occupied(c) => { c.into_mut() },
-                            Vacant(c) => { c.insert(vec![]) },
-                        }.push(cve.clone());
-                    },
+                                Occupied(c) => c.into_mut(),
+                                Vacant(c) => c.insert(vec![]),
+                            }
+                            .push(cve.clone());
+                    }
                 };
-            };
-        },
-        Err(_) => { debug!("Package {} not installed", pkg) },
+            }
+        }
+        Err(_) => debug!("Package {} not installed", pkg),
     }
     pkg_cves
 }
@@ -247,8 +284,12 @@ fn print_asa(options: &Options, pkgname: &String, cve: Vec<String>, version: Opt
                 println!("{}", pkgname);
             } else {
                 match options.format {
-                    Some(ref f) => { println!("{}", f.replace("%n", pkgname).replace("%c", cve.iter().join(",").as_str())) },
-                    None => { println!("{}. Update to {}!", msg, v) },
+                    Some(ref f) => {
+                        println!("{}",
+                                 f.replace("%n", pkgname)
+                                     .replace("%c", cve.iter().join(",").as_str()))
+                    }
+                    None => println!("{}. Update to {}!", msg, v),
                 }
             }
         }
@@ -258,8 +299,12 @@ fn print_asa(options: &Options, pkgname: &String, cve: Vec<String>, version: Opt
                     println!("{}", pkgname);
                 } else {
                     match options.format {
-                        Some(ref f) => { println!("{}", f.replace("%n", pkgname).replace("%c", cve.iter().join(",").as_str())) },
-                        None => { println!("{}. VULNERABLE!", msg) },
+                        Some(ref f) => {
+                            println!("{}",
+                                     f.replace("%n", pkgname)
+                                         .replace("%c", cve.iter().join(",").as_str()))
+                        }
+                        None => println!("{}. VULNERABLE!", msg),
                     }
                 }
             }
