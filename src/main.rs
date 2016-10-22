@@ -116,7 +116,7 @@ fn main() {
 
     let mut infos: HashMap<String, Vec<_>> = HashMap::new();
     {
-        let json = json::parse(wikipage.as_str()).unwrap();
+        let json = json::parse(&wikipage).unwrap();
         let document = Document::from(json["parse"]["text"]["*"].as_str().unwrap());
 
         for tr in document.find(Name("tbody")).find(Name("tr")).iter() {
