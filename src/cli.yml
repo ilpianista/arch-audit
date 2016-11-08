@@ -1,0 +1,22 @@
+name: arch-audit
+version: 0.1.4
+args:
+    - dbpath:
+        short: b
+        long: dbpath
+        takes_value: true
+        help: Set an alternate database location
+    - format:
+        short: f
+        long: format
+        takes_value: true
+        help: Specify a format to control the output. Placeholders are %n (pkgname) and %c (CVEs)
+    - quiet:
+        short: q
+        long: quiet
+        multiple: true
+        help: Show only vulnerable package names and their versions
+    - upgradable:
+        short: u
+        long: upgradable
+        help: Show only packages that have already been fixed
