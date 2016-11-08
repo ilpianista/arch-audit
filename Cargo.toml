@@ -13,7 +13,7 @@ name = "arch-audit"
 
 [dependencies]
 alpm = "^0.4"
-clap = "^2"
+clap = {version = "^2", features = ["yaml"]}
 curl = "^0.3"
 env_logger = "^0.3"
 itertools = "^0.5"

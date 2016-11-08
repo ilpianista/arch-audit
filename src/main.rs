@@ -1,4 +1,5 @@
 extern crate alpm;
+#[macro_use]
 extern crate clap;
 extern crate curl;
 extern crate env_logger;
@@ -8,7 +9,7 @@ extern crate json;
 extern crate log;
 extern crate select;
 
-use clap::{Arg, App};
+use clap::App;
 use curl::easy::Easy;
 use itertools::Itertools;
 use select::document::Document;
@@ -56,29 +57,8 @@ impl Default for Options {
 fn main() {
     env_logger::init().unwrap();
 
-    let args = App::new("arch-audit")
-        .version("0.1.4")
-        .arg(Arg::with_name("dbpath")
-            .short("b")
-            .long("dbpath")
-            .takes_value(true)
-            .help("Set an alternate database location"))
-        .arg(Arg::with_name("format")
-            .short("f")
-            .long("format")
-            .takes_value(true)
-            .help("Specify a format to control the output. Placeholders are %n (pkgname) and %c \
-                   (CVEs)"))
-        .arg(Arg::with_name("quiet")
-            .short("q")
-            .long("quiet")
-            .multiple(true)
-            .help("Show only vulnerable package names and their versions"))
-        .arg(Arg::with_name("upgradable")
-            .short("u")
-            .long("upgradable")
-            .help("Show only packages that have already been fixed"))
-        .get_matches();
+    let yaml = load_yaml!("cli.yml");
+    let args = App::from_yaml(yaml).get_matches();
 
     let options = Options {
         format: {
