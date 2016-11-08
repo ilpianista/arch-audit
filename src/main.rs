@@ -105,7 +105,7 @@ fn main() {
             match tds.first() {
                 Some(td) => {
                     let mut next = tds.next().next();
-                    let pkgname = next.first().unwrap().text().trim().to_string();
+                    let packages = next.first().unwrap().text();
                     next = next.next().next().next().next().next().next();
                     let info = ASA {
                         cve: td.text()
@@ -126,11 +126,13 @@ fn main() {
                     let status = next.first().unwrap().text().trim().to_string();
 
                     if !status.starts_with("Not Affected") {
-                        match infos.entry(pkgname) {
-                                Occupied(c) => c.into_mut(),
-                                Vacant(c) => c.insert(vec![]),
-                            }
-                            .push(info);
+                        for p in packages.split_whitespace() {
+                            match infos.entry(p.to_string()) {
+                                    Occupied(c) => c.into_mut(),
+                                    Vacant(c) => c.insert(vec![]),
+                                }
+                                .push(info.clone());
+                        }
                     }
                 }
                 None => {}
