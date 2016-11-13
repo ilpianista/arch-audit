@@ -1,0 +1,42 @@
+
+.TH "ARCH-AUDIT" "1" "11/13/2016" "1.5" "arch-audit Manual"
+.SH "NAME"
+arch\-audit \- An utility like pkg-audit for Arch Linux.
+.SH "SYNOPSIS"
+arch-audit [FLAGS] [OPTIONS]
+.SH "DESCRIPTION"
+An utility like pkg-audit based on Arch CVE Monitoring Team data.
+.SH "FLAGS"
+.PP 
+\fI-h, --help\fR 
+.RS 4
+Prints help information.
+.RE
+.PP 
+\fI-q, --quiet\fR 
+.RS 4
+Show only vulnerable package names and their versions.
+.RE
+.PP 
+\fI-u, --upgradable\fR 
+.RS 4
+Show only packages that have already been fixed.
+.RE
+.PP 
+\fI-V, --version\fR 
+.RS 4
+Prints version information
+.RE
+.SH "OPTIONS"
+.PP
+\fI-b, --dbpath\fR <dbpath>
+.RS 4
+Set an alternate database location
+.RE
+.PP
+\fI-f, --format\fR <format>
+.RS 4
+Specify a format to control the output. Placeholders are %n (pkgname)
+and %c (CVEs)
+.SH "AUTHOR"
+Developer Andrea Scarpino <andrea@archlinux.org>
