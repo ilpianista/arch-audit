@@ -7,14 +7,11 @@ extern crate itertools;
 #[macro_use]
 extern crate log;
 extern crate rustc_serialize;
-extern crate select;
 
 use clap::App;
 use curl::easy::Easy;
 use itertools::Itertools;
 use rustc_serialize::json::Json;
-use select::document::Document;
-use select::predicate::Name;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry::{Occupied, Vacant};
@@ -72,17 +69,16 @@ fn main() {
         upgradable_only: args.is_present("upgradable"),
     };
 
-    let mut wikipage = String::new();
+    let mut avgs = String::new();
     {
-        info!("Downloading CVE wiki page...");
-        let wikipage_url = "https://wiki.archlinux.org/api.\
-                            php?format=json&action=parse&page=CVE&section=5";
+        info!("Downloading AVGs...");
+        let avgs_url = "http://45.32.158.89/json";
 
         let mut easy = Easy::new();
-        easy.url(wikipage_url).unwrap();
+        easy.url(avgs_url).unwrap();
         let mut transfer = easy.transfer();
         transfer.write_function(|data| {
-                wikipage.push_str(str::from_utf8(data).unwrap());
+                avgs.push_str(str::from_utf8(data).unwrap());
                 Ok(data.len())
             })
             .unwrap();
@@ -97,47 +93,40 @@ fn main() {
 
     let mut infos: HashMap<String, Vec<_>> = HashMap::new();
     {
-        let json = Json::from_str(&wikipage).unwrap();
-        let document = Document::from(json["parse"]["text"]["*"].as_string().unwrap());
+        let json = Json::from_str(&avgs).unwrap();
 
-        for tr in document.find(Name("tbody")).find(Name("tr")).iter() {
-            let tds = tr.find(Name("td"));
+        for avg in json.as_array().unwrap() {
+            let packages = avg["packages"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|s| s.as_string().unwrap().to_string())
+                .collect::<Vec<_>>();
 
-            match tds.first() {
-                Some(td) => {
-                    let mut next = tds.next().next();
-                    let packages = next.first().unwrap().text();
-                    next = next.next().next().next().next().next().next();
-                    let info = ASA {
-                        cve: td.text()
-                            .split_whitespace()
-                            .filter(|s| s.starts_with("CVE"))
-                            .map(|s| s.to_string())
-                            .collect(),
-                        version: {
-                            let v = next.first().unwrap().text().trim().to_string();
-                            if !v.is_empty() && v != "?".to_string() && v != "-".to_string() {
-                                Some(v)
-                            } else {
-                                None
-                            }
-                        },
-                    };
-                    next = next.next().next().next().next();
-                    let status = next.first().unwrap().text().trim().to_string();
-
-                    if !status.starts_with("Not Affected") {
-                        for p in packages.split_whitespace() {
-                            match infos.entry(p.to_string()) {
-                                    Occupied(c) => c.into_mut(),
-                                    Vacant(c) => c.insert(vec![]),
-                                }
-                                .push(info.clone());
-                        }
-                    }
-                }
-                None => {}
+            let info = ASA {
+                cve: avg["issues"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|s| s.as_string().unwrap().to_string())
+                    .collect(),
+                version: match avg["fixed"].as_string() {
+                    Some(s) => Some(s.to_string()),
+                    None => None,
+                },
             };
+
+            let status = avg["status"].as_string().unwrap();
+
+            if !status.starts_with("Not affected") {
+                for p in packages {
+                    match infos.entry(p) {
+                            Occupied(c) => c.into_mut(),
+                            Vacant(c) => c.insert(vec![]),
+                        }
+                        .push(info.clone());
+                }
+            }
         }
     }
 
