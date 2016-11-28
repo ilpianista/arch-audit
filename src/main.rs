@@ -4,14 +4,15 @@ extern crate clap;
 extern crate curl;
 extern crate env_logger;
 extern crate itertools;
-extern crate json;
 #[macro_use]
 extern crate log;
+extern crate rustc_serialize;
 extern crate select;
 
 use clap::App;
 use curl::easy::Easy;
 use itertools::Itertools;
+use rustc_serialize::json::Json;
 use select::document::Document;
 use select::predicate::Name;
 use std::cmp::Ordering;
@@ -96,8 +97,8 @@ fn main() {
 
     let mut infos: HashMap<String, Vec<_>> = HashMap::new();
     {
-        let json = json::parse(&wikipage).unwrap();
-        let document = Document::from(json["parse"]["text"]["*"].as_str().unwrap());
+        let json = Json::from_str(&wikipage).unwrap();
+        let document = Document::from(json["parse"]["text"]["*"].as_string().unwrap());
 
         for tr in document.find(Name("tbody")).find(Name("tr")).iter() {
             let tds = tr.find(Name("td"));
