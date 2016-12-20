@@ -8,8 +8,6 @@
 
 Uses data collected by the awesome [Arch CVE Monitoring Team](https://wiki.archlinux.org/index.php/Arch_CVE_Monitoring_Team).
 
-**This is WIP.**
-
 ## Installation
 
 ### From AUR
@@ -52,3 +50,6 @@ After the installation just execute `arch-audit`.
     wireshark-cli|CVE-2016-7180,CVE-2016-7175,CVE-2016-7176,CVE-2016-7177,CVE-2016-7178,CVE-2016-7179
     lib32-openssl|CVE-2016-2177,CVE-2016-2178,CVE-2016-2179,CVE-2016-2180,CVE-2016-2181,CVE-2016-2182,CVE-2016-2183,CVE-2016-6302,CVE-2016-6303,CVE-2016-6304,CVE-2016-6306
 
+## License
+
+MIT
