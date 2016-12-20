@@ -72,7 +72,7 @@ fn main() {
     let mut avgs = String::new();
     {
         info!("Downloading AVGs...");
-        let avgs_url = "http://45.32.158.89/json";
+        let avgs_url = "https://security.archlinux.org/json";
 
         let mut easy = Easy::new();
         easy.url(avgs_url).unwrap();
