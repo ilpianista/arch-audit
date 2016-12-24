@@ -91,7 +91,12 @@ fn main() {
         };
     }
 
-    let mut infos: HashMap<String, Vec<_>> = HashMap::new();
+    let pacman = match args.value_of("dbpath") {
+        Some(path) => alpm::Alpm::with_dbpath(path.to_string()).unwrap(),
+        None => alpm::Alpm::new().unwrap(),
+    };
+
+    let mut cves: HashMap<String, Vec<_>> = HashMap::new();
     {
         let json = Json::from_str(&avgs).unwrap();
 
@@ -102,6 +107,10 @@ fn main() {
                 .iter()
                 .map(|s| s.as_string().unwrap().to_string())
                 .collect::<Vec<_>>();
+
+            if !package_is_installed(&pacman, &packages) {
+                continue;
+            }
 
             let info = ASA {
                 cve: avg["issues"]
@@ -120,7 +129,7 @@ fn main() {
 
             if !status.starts_with("Not affected") {
                 for p in packages {
-                    match infos.entry(p) {
+                    match cves.entry(p) {
                             Occupied(c) => c.into_mut(),
                             Vacant(c) => c.insert(vec![]),
                         }
@@ -130,153 +139,185 @@ fn main() {
         }
     }
 
-    let pacman = match args.value_of("dbpath") {
-        Some(path) => alpm::Alpm::with_dbpath(path.to_string()).unwrap(),
-        None => alpm::Alpm::new().unwrap(),
-    };
-
-    for (pkg, cves) in infos {
-        let pkg_cves = get_asas_for_package_by_version(&pacman, &pkg, &cves);
-
-        let (relevant_cves, version) = cves_with_relevant_version(pkg_cves, &pacman);
-
-        if !relevant_cves.is_empty() {
-            print_asa(&options, &pkg, relevant_cves, version);
-        }
-    }
-}
-
-/// gets a map from version to ASAs for a specific package, returns list of CVEs for that
-/// package and a version, which is the most updated
-fn cves_with_relevant_version(pkg_cves: HashMap<Option<String>, Vec<ASA>>,
-                              pacman: &alpm::Alpm)
-                              -> (Vec<String>, Option<String>) {
-    let mut cves: Vec<String> = vec![];
-    // the newest version, which fixes all/most ? cves
-    let mut version: Option<String> = None;
-    for (v, asas) in pkg_cves {
-        for asa in asas {
-            for cve in asa.cve {
-                cves.push(cve);
-            }
-        }
-        match v {
-            Some(ref v) => {
-                version = match version {
-                    None => Some(v.clone()),
-                    Some(ref vv) => {
-                        match pacman.vercmp(v.clone(), vv.clone()).unwrap() {
-                            Ordering::Greater => Some(v.clone()),
-                            _ => version.clone(),
-                        }
+    let mut affected_cves: HashMap<String, Vec<_>> = HashMap::new();
+    for (pkg, asas) in cves {
+        for asa in &asas {
+            if system_is_affected(&pacman, &pkg, &asa) {
+                match affected_cves.entry(pkg.clone()) {
+                        Occupied(c) => c.into_mut(),
+                        Vacant(c) => c.insert(vec![]),
                     }
-                }
+                    .push(asa.clone());
             }
-            _ => {}
         }
     }
-    (cves, version)
+
+    let merged = merge_asas(&pacman, &affected_cves);
+    print_asas(&options, &merged);
 }
 
-#[test]
-fn test_cves_with_relevant_version() {
-    let mut map = HashMap::new();
-    map.insert(Some("1.0".to_string()),
-               vec![ASA {
-                        cve: vec!["a".to_string(), "b".to_string()],
-                        version: Some("1.0".to_string()),
-                    }]);
-    map.insert(Some("2.0".to_string()),
-               vec![ASA {
-                        cve: vec!["c".to_string()],
-                        version: Some("2.0".to_string()),
-                    }]);
-    map.insert(Some("3.0".to_string()),
-               vec![ASA {
-                        cve: vec![],
-                        version: Some("3.0".to_string()),
-                    }]);
-
-    let pacman = alpm::Alpm::new().unwrap();
-    let (mut cves, version) = cves_with_relevant_version(map, &pacman);
-
-    cves.sort();
-    assert_eq!(cves,
-               vec!["a".to_string(), "b".to_string(), "c".to_string()]);
-    assert_eq!(version, Some("3.0".to_string()));
-}
-
-/// creates a map between version and ASAs from a list of ASAs
-fn get_asas_for_package_by_version(pacman: &alpm::Alpm,
-                                   pkg: &String,
-                                   cves: &Vec<ASA>)
-                                   -> HashMap<Option<String>, Vec<ASA>> {
-    let mut pkg_cves: HashMap<Option<String>, Vec<ASA>> = HashMap::new();
+/// Given a package and an ASA, returns true if the system is affected
+fn system_is_affected(pacman: &alpm::Alpm, pkg: &String, asa: &ASA) -> bool {
     match pacman.query_package_version(pkg.clone()) {
         Ok(v) => {
             info!("Found installed version {} for package {}", v, pkg);
-            for cve in cves {
-                match cve.version {
-                    Some(ref version) => {
-                        info!("Comparing with fixed version {}", version);
-                        match pacman.vercmp(v.clone(), version.clone()).unwrap() {
-                            Ordering::Less => {
-                                match pkg_cves.entry(Some(version.clone())) {
-                                        Occupied(c) => c.into_mut(),
-                                        Vacant(c) => c.insert(vec![]),
-                                    }
-                                    .push(cve.clone());
-                            }
-                            _ => {}
-                        };
-                    }
-                    None => {
-                        match pkg_cves.entry(None) {
-                                Occupied(c) => c.into_mut(),
-                                Vacant(c) => c.insert(vec![]),
-                            }
-                            .push(cve.clone());
-                    }
-                };
-            }
+            match asa.version {
+                Some(ref version) => {
+                    info!("Comparing with fixed version {}", version);
+                    match pacman.vercmp(v.clone(), version.clone()).unwrap() {
+                        Ordering::Less => return true,
+                        _ => {}
+                    };
+                }
+                None => return true,
+            };
         }
         Err(_) => debug!("Package {} not installed", pkg),
     }
-    pkg_cves
+
+    return false;
 }
 
-fn print_asa(options: &Options, pkgname: &String, cve: Vec<String>, version: Option<String>) {
-    let msg = format!("Package {} is affected by {:?}", pkgname, cve);
+#[test]
+fn test_system_is_affected() {
+    let pacman = alpm::Alpm::new().unwrap();
 
-    match version {
-        Some(v) => {
-            if options.quiet == 1 {
-                println!("{}>={}", pkgname, v);
-            } else if options.quiet >= 2 {
-                println!("{}", pkgname);
-            } else {
-                match options.format {
-                    Some(ref f) => {
-                        println!("{}",
-                                 f.replace("%n", pkgname)
-                                     .replace("%c", cve.iter().join(",").as_str()))
+    let cve1 = ASA {
+        cve: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+        version: Some("1.0.0".to_string()),
+    };
+
+    assert_eq!(false,
+               system_is_affected(&pacman, &"pacman".to_string(), &cve1));
+
+    let cve2 = ASA {
+        cve: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+        version: Some("7.0.0".to_string()),
+    };
+    assert!(system_is_affected(&pacman, &"pacman".to_string(), &cve2));
+}
+
+/// Given a list of package names, returns true when at least one is installed
+fn package_is_installed(pacman: &alpm::Alpm, packages: &Vec<String>) -> bool {
+    for pkg in packages {
+        match pacman.query_package_version(pkg.as_str()) {
+            Ok(_) => {
+                info!("Package {} is installed", pkg);
+                return true;
+            }
+            Err(_) => debug!("Package {} not installed", pkg),
+        }
+    }
+    return false;
+}
+
+#[test]
+fn test_package_is_installed() {
+    let pacman = alpm::Alpm::new().unwrap();
+
+    let packages = vec!["pacman".to_string(), "pac".to_string()];
+    assert!(package_is_installed(&pacman, &packages));
+
+    let packages = vec!["pac".to_string()];
+    assert_eq!(false, package_is_installed(&pacman, &packages));
+}
+
+/// Merge a list of ASAs into a single ASA using major version as version
+fn merge_asas(pacman: &alpm::Alpm, cves: &HashMap<String, Vec<ASA>>) -> HashMap<String, ASA> {
+    let mut asas: HashMap<String, ASA> = HashMap::new();
+    for (pkg, list) in cves.iter() {
+        let mut asa_cve = vec![];
+        let mut asa_version: Option<String> = None;
+
+        for a in list.iter() {
+            asa_cve.append(&mut a.cve.clone());
+
+            match asa_version.clone() {
+                Some(ref version) => {
+                    match a.version {
+                        Some(ref v) => {
+                            match pacman.vercmp(version.to_string(), v.to_string()).unwrap() {
+                                Ordering::Greater => asa_version = a.version.clone(),
+                                _ => {}
+                            }
+                        }
+                        None => {}
                     }
-                    None => println!("{}. Update to {}!", msg, v),
                 }
+                None => asa_version = a.version.clone(),
             }
         }
-        None => {
-            if !options.upgradable_only {
-                if options.quiet > 0 {
-                    println!("{}", pkgname);
+
+        let asa = ASA {
+            cve: asa_cve,
+            version: asa_version,
+        };
+        asas.insert(pkg.to_string(), asa);
+    }
+
+    asas
+}
+
+#[test]
+fn test_merge_asas() {
+    let mut affected_cves: HashMap<String, Vec<_>> = HashMap::new();
+
+    let asa1 = ASA {
+        cve: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+        version: Some("1.0.0".to_string()),
+    };
+
+    let asa2 = ASA {
+        cve: vec!["CVE-4".to_string(), "CVE-10".to_string()],
+        version: Some("0.9.8".to_string()),
+    };
+
+    affected_cves.insert("package".to_string(), vec![asa1.clone(), asa2.clone()]);
+
+    affected_cves.insert("package2".to_string(), vec![asa1, asa2]);
+
+    let pacman = alpm::Alpm::new().unwrap();
+    let merged = merge_asas(&pacman, &affected_cves);
+
+    assert_eq!(2, merged.len());
+    assert_eq!(4, merged.get(&"package".to_string()).unwrap().cve.len());
+}
+
+/// Print a list of ASAs
+fn print_asas(options: &Options, cves: &HashMap<String, ASA>) {
+    for (pkg, asa) in cves {
+        let msg = format!("Package {} is affected by {:?}", pkg, asa.cve);
+
+        match asa.version {
+            Some(ref v) => {
+                if options.quiet == 1 {
+                    println!("{}>={}", pkg, v);
+                } else if options.quiet >= 2 {
+                    println!("{}", pkg);
                 } else {
                     match options.format {
                         Some(ref f) => {
                             println!("{}",
-                                     f.replace("%n", pkgname)
-                                         .replace("%c", cve.iter().join(",").as_str()))
+                                     f.replace("%n", pkg.as_str())
+                                         .replace("%c", asa.cve.iter().join(",").as_str()))
                         }
-                        None => println!("{}. VULNERABLE!", msg),
+                        None => println!("{}. Update to {}!", msg, v),
+                    }
+                }
+            }
+            None => {
+                if !options.upgradable_only {
+                    if options.quiet > 0 {
+                        println!("{}", pkg);
+                    } else {
+                        match options.format {
+                            Some(ref f) => {
+                                println!("{}",
+                                         f.replace("%n", pkg.as_str())
+                                             .replace("%c", asa.cve.iter().join(",").as_str()))
+                            }
+                            None => println!("{}. VULNERABLE!", msg),
+                        }
                     }
                 }
             }
