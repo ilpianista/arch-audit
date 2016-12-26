@@ -18,12 +18,36 @@ use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::default::Default;
 use std::process::exit;
 use std::str;
+use std::str::FromStr;
 
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
+enum Severity {
+    Unknown,
+    Low,
+    Medium,
+    High,
+    Critical,
+}
 
-#[derive(Debug, Clone)]
+impl FromStr for Severity {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Severity, ()> {
+        match s {
+            "Critical" => Ok(Severity::Critical),
+            "High" => Ok(Severity::High),
+            "Medium" => Ok(Severity::Medium),
+            "Low" => Ok(Severity::Low),
+            _ => Ok(Severity::Unknown),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 struct AVG {
     issues: Vec<String>,
     fixed: Option<String>,
+    severity: Severity,
 }
 
 impl Default for AVG {
@@ -31,11 +55,11 @@ impl Default for AVG {
         AVG {
             issues: vec![],
             fixed: None,
+            severity: Severity::Unknown,
         }
     }
 }
 
-#[derive(Debug)]
 struct Options {
     format: Option<String>,
     quiet: u64,
@@ -123,6 +147,12 @@ fn main() {
                     Some(s) => Some(s.to_string()),
                     None => None,
                 },
+                severity: avg["severity"]
+                    .as_string()
+                    .unwrap()
+                    .to_string()
+                    .parse::<Severity>()
+                    .unwrap(),
             };
 
             let status = avg["status"].as_string().unwrap();
@@ -185,6 +215,7 @@ fn test_system_is_affected() {
     let avg1 = AVG {
         issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
         fixed: Some("1.0.0".to_string()),
+        severity: Severity::Unknown,
     };
 
     assert_eq!(false,
@@ -193,6 +224,7 @@ fn test_system_is_affected() {
     let avg2 = AVG {
         issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
         fixed: Some("7.0.0".to_string()),
+        severity: Severity::Unknown,
     };
     assert!(system_is_affected(&pacman, &"pacman".to_string(), &avg2));
 }
@@ -228,6 +260,7 @@ fn merge_avgs(pacman: &alpm::Alpm, cves: &BTreeMap<String, Vec<AVG>>) -> BTreeMa
     for (pkg, list) in cves.iter() {
         let mut avg_issues = vec![];
         let mut avg_fixed: Option<String> = None;
+        let mut avg_severity = Severity::Unknown;
 
         for a in list.iter() {
             avg_issues.append(&mut a.issues.clone());
@@ -246,11 +279,16 @@ fn merge_avgs(pacman: &alpm::Alpm, cves: &BTreeMap<String, Vec<AVG>>) -> BTreeMa
                 }
                 None => avg_fixed = a.fixed.clone(),
             }
+
+            if a.severity > avg_severity {
+                avg_severity = a.severity.clone();
+            }
         }
 
         let avg = AVG {
             issues: avg_issues,
             fixed: avg_fixed,
+            severity: avg_severity,
         };
         avgs.insert(pkg.to_string(), avg);
     }
@@ -265,12 +303,16 @@ fn test_merge_avgs() {
     let avg1 = AVG {
         issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
         fixed: Some("1.0.0".to_string()),
+        severity: Severity::Unknown,
     };
 
     let avg2 = AVG {
         issues: vec!["CVE-4".to_string(), "CVE-10".to_string()],
         fixed: Some("0.9.8".to_string()),
+        severity: Severity::High,
     };
+
+    assert!(Severity::Critical > Severity::High);
 
     avgs.insert("package".to_string(), vec![avg1.clone(), avg2.clone()]);
 
@@ -281,6 +323,8 @@ fn test_merge_avgs() {
 
     assert_eq!(2, merged.len());
     assert_eq!(4, merged.get(&"package".to_string()).unwrap().issues.len());
+    assert_eq!(Severity::High,
+               merged.get(&"package".to_string()).unwrap().severity);
 }
 
 /// Print a list of AVGs
@@ -316,7 +360,7 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, AVG>) {
                                          f.replace("%n", pkg.as_str())
                                              .replace("%c", avg.issues.iter().join(",").as_str()))
                             }
-                            None => println!("{}. VULNERABLE!", msg),
+                            None => println!("{}. {:?} risk!", msg, avg.severity),
                         }
                     }
                 }
