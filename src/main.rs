@@ -21,16 +21,16 @@ use std::str;
 
 
 #[derive(Debug, Clone)]
-struct ASA {
-    cve: Vec<String>,
-    version: Option<String>,
+struct AVG {
+    issues: Vec<String>,
+    fixed: Option<String>,
 }
 
-impl Default for ASA {
-    fn default() -> ASA {
-        ASA {
-            cve: vec![],
-            version: None,
+impl Default for AVG {
+    fn default() -> AVG {
+        AVG {
+            issues: vec![],
+            fixed: None,
         }
     }
 }
@@ -112,14 +112,14 @@ fn main() {
                 continue;
             }
 
-            let info = ASA {
-                cve: avg["issues"]
+            let info = AVG {
+                issues: avg["issues"]
                     .as_array()
                     .unwrap()
                     .iter()
                     .map(|s| s.as_string().unwrap().to_string())
                     .collect(),
-                version: match avg["fixed"].as_string() {
+                fixed: match avg["fixed"].as_string() {
                     Some(s) => Some(s.to_string()),
                     None => None,
                 },
@@ -139,29 +139,29 @@ fn main() {
         }
     }
 
-    let mut affected_cves: BTreeMap<String, Vec<_>> = BTreeMap::new();
-    for (pkg, asas) in cves {
-        for asa in &asas {
-            if system_is_affected(&pacman, &pkg, &asa) {
-                match affected_cves.entry(pkg.clone()) {
+    let mut affected_avgs: BTreeMap<String, Vec<_>> = BTreeMap::new();
+    for (pkg, avgs) in cves {
+        for avg in &avgs {
+            if system_is_affected(&pacman, &pkg, &avg) {
+                match affected_avgs.entry(pkg.clone()) {
                         Occupied(c) => c.into_mut(),
                         Vacant(c) => c.insert(vec![]),
                     }
-                    .push(asa.clone());
+                    .push(avg.clone());
             }
         }
     }
 
-    let merged = merge_asas(&pacman, &affected_cves);
-    print_asas(&options, &merged);
+    let merged = merge_avgs(&pacman, &affected_avgs);
+    print_avgs(&options, &merged);
 }
 
-/// Given a package and an ASA, returns true if the system is affected
-fn system_is_affected(pacman: &alpm::Alpm, pkg: &String, asa: &ASA) -> bool {
+/// Given a package and an AVG, returns true if the system is affected
+fn system_is_affected(pacman: &alpm::Alpm, pkg: &String, avg: &AVG) -> bool {
     match pacman.query_package_version(pkg.clone()) {
         Ok(v) => {
             info!("Found installed version {} for package {}", v, pkg);
-            match asa.version {
+            match avg.fixed {
                 Some(ref version) => {
                     info!("Comparing with fixed version {}", version);
                     match pacman.vercmp(v.clone(), version.clone()).unwrap() {
@@ -182,19 +182,19 @@ fn system_is_affected(pacman: &alpm::Alpm, pkg: &String, asa: &ASA) -> bool {
 fn test_system_is_affected() {
     let pacman = alpm::Alpm::new().unwrap();
 
-    let cve1 = ASA {
-        cve: vec!["CVE-1".to_string(), "CVE-2".to_string()],
-        version: Some("1.0.0".to_string()),
+    let avg1 = AVG {
+        issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+        fixed: Some("1.0.0".to_string()),
     };
 
     assert_eq!(false,
-               system_is_affected(&pacman, &"pacman".to_string(), &cve1));
+               system_is_affected(&pacman, &"pacman".to_string(), &avg1));
 
-    let cve2 = ASA {
-        cve: vec!["CVE-1".to_string(), "CVE-2".to_string()],
-        version: Some("7.0.0".to_string()),
+    let avg2 = AVG {
+        issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+        fixed: Some("7.0.0".to_string()),
     };
-    assert!(system_is_affected(&pacman, &"pacman".to_string(), &cve2));
+    assert!(system_is_affected(&pacman, &"pacman".to_string(), &avg2));
 }
 
 /// Given a list of package names, returns true when at least one is installed
@@ -222,73 +222,73 @@ fn test_package_is_installed() {
     assert_eq!(false, package_is_installed(&pacman, &packages));
 }
 
-/// Merge a list of ASAs into a single ASA using major version as version
-fn merge_asas(pacman: &alpm::Alpm, cves: &BTreeMap<String, Vec<ASA>>) -> BTreeMap<String, ASA> {
-    let mut asas: BTreeMap<String, ASA> = BTreeMap::new();
+/// Merge a list of AVGs into a single AVG using major version as version
+fn merge_avgs(pacman: &alpm::Alpm, cves: &BTreeMap<String, Vec<AVG>>) -> BTreeMap<String, AVG> {
+    let mut avgs: BTreeMap<String, AVG> = BTreeMap::new();
     for (pkg, list) in cves.iter() {
-        let mut asa_cve = vec![];
-        let mut asa_version: Option<String> = None;
+        let mut avg_issues = vec![];
+        let mut avg_fixed: Option<String> = None;
 
         for a in list.iter() {
-            asa_cve.append(&mut a.cve.clone());
+            avg_issues.append(&mut a.issues.clone());
 
-            match asa_version.clone() {
+            match avg_fixed.clone() {
                 Some(ref version) => {
-                    match a.version {
+                    match a.fixed {
                         Some(ref v) => {
                             match pacman.vercmp(version.to_string(), v.to_string()).unwrap() {
-                                Ordering::Greater => asa_version = a.version.clone(),
+                                Ordering::Greater => avg_fixed = a.fixed.clone(),
                                 _ => {}
                             }
                         }
                         None => {}
                     }
                 }
-                None => asa_version = a.version.clone(),
+                None => avg_fixed = a.fixed.clone(),
             }
         }
 
-        let asa = ASA {
-            cve: asa_cve,
-            version: asa_version,
+        let avg = AVG {
+            issues: avg_issues,
+            fixed: avg_fixed,
         };
-        asas.insert(pkg.to_string(), asa);
+        avgs.insert(pkg.to_string(), avg);
     }
 
-    asas
+    avgs
 }
 
 #[test]
-fn test_merge_asas() {
-    let mut affected_cves: BTreeMap<String, Vec<_>> = BTreeMap::new();
+fn test_merge_avgs() {
+    let mut avgs: BTreeMap<String, Vec<_>> = BTreeMap::new();
 
-    let asa1 = ASA {
-        cve: vec!["CVE-1".to_string(), "CVE-2".to_string()],
-        version: Some("1.0.0".to_string()),
+    let avg1 = AVG {
+        issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+        fixed: Some("1.0.0".to_string()),
     };
 
-    let asa2 = ASA {
-        cve: vec!["CVE-4".to_string(), "CVE-10".to_string()],
-        version: Some("0.9.8".to_string()),
+    let avg2 = AVG {
+        issues: vec!["CVE-4".to_string(), "CVE-10".to_string()],
+        fixed: Some("0.9.8".to_string()),
     };
 
-    affected_cves.insert("package".to_string(), vec![asa1.clone(), asa2.clone()]);
+    avgs.insert("package".to_string(), vec![avg1.clone(), avg2.clone()]);
 
-    affected_cves.insert("package2".to_string(), vec![asa1, asa2]);
+    avgs.insert("package2".to_string(), vec![avg1, avg2]);
 
     let pacman = alpm::Alpm::new().unwrap();
-    let merged = merge_asas(&pacman, &affected_cves);
+    let merged = merge_avgs(&pacman, &avgs);
 
     assert_eq!(2, merged.len());
-    assert_eq!(4, merged.get(&"package".to_string()).unwrap().cve.len());
+    assert_eq!(4, merged.get(&"package".to_string()).unwrap().issues.len());
 }
 
-/// Print a list of ASAs
-fn print_asas(options: &Options, cves: &BTreeMap<String, ASA>) {
-    for (pkg, asa) in cves {
-        let msg = format!("Package {} is affected by {:?}", pkg, asa.cve);
+/// Print a list of AVGs
+fn print_avgs(options: &Options, avgs: &BTreeMap<String, AVG>) {
+    for (pkg, avg) in avgs {
+        let msg = format!("Package {} is affected by {:?}", pkg, avg.issues);
 
-        match asa.version {
+        match avg.fixed {
             Some(ref v) => {
                 if options.quiet == 1 {
                     println!("{}>={}", pkg, v);
@@ -299,7 +299,7 @@ fn print_asas(options: &Options, cves: &BTreeMap<String, ASA>) {
                         Some(ref f) => {
                             println!("{}",
                                      f.replace("%n", pkg.as_str())
-                                         .replace("%c", asa.cve.iter().join(",").as_str()))
+                                         .replace("%c", avg.issues.iter().join(",").as_str()))
                         }
                         None => println!("{}. Update to {}!", msg, v),
                     }
@@ -314,7 +314,7 @@ fn print_asas(options: &Options, cves: &BTreeMap<String, ASA>) {
                             Some(ref f) => {
                                 println!("{}",
                                          f.replace("%n", pkg.as_str())
-                                             .replace("%c", asa.cve.iter().join(",").as_str()))
+                                             .replace("%c", avg.issues.iter().join(",").as_str()))
                             }
                             None => println!("{}. VULNERABLE!", msg),
                         }
