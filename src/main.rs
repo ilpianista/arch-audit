@@ -13,8 +13,8 @@ use curl::easy::Easy;
 use itertools::Itertools;
 use rustc_serialize::json::Json;
 use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::collections::hash_map::Entry::{Occupied, Vacant};
+use std::collections::BTreeMap;
+use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::default::Default;
 use std::process::exit;
 use std::str;
@@ -96,7 +96,7 @@ fn main() {
         None => alpm::Alpm::new().unwrap(),
     };
 
-    let mut cves: HashMap<String, Vec<_>> = HashMap::new();
+    let mut cves: BTreeMap<String, Vec<_>> = BTreeMap::new();
     {
         let json = Json::from_str(&avgs).unwrap();
 
@@ -139,7 +139,7 @@ fn main() {
         }
     }
 
-    let mut affected_cves: HashMap<String, Vec<_>> = HashMap::new();
+    let mut affected_cves: BTreeMap<String, Vec<_>> = BTreeMap::new();
     for (pkg, asas) in cves {
         for asa in &asas {
             if system_is_affected(&pacman, &pkg, &asa) {
@@ -223,8 +223,8 @@ fn test_package_is_installed() {
 }
 
 /// Merge a list of ASAs into a single ASA using major version as version
-fn merge_asas(pacman: &alpm::Alpm, cves: &HashMap<String, Vec<ASA>>) -> HashMap<String, ASA> {
-    let mut asas: HashMap<String, ASA> = HashMap::new();
+fn merge_asas(pacman: &alpm::Alpm, cves: &BTreeMap<String, Vec<ASA>>) -> BTreeMap<String, ASA> {
+    let mut asas: BTreeMap<String, ASA> = BTreeMap::new();
     for (pkg, list) in cves.iter() {
         let mut asa_cve = vec![];
         let mut asa_version: Option<String> = None;
@@ -260,7 +260,7 @@ fn merge_asas(pacman: &alpm::Alpm, cves: &HashMap<String, Vec<ASA>>) -> HashMap<
 
 #[test]
 fn test_merge_asas() {
-    let mut affected_cves: HashMap<String, Vec<_>> = HashMap::new();
+    let mut affected_cves: BTreeMap<String, Vec<_>> = BTreeMap::new();
 
     let asa1 = ASA {
         cve: vec!["CVE-1".to_string(), "CVE-2".to_string()],
@@ -284,7 +284,7 @@ fn test_merge_asas() {
 }
 
 /// Print a list of ASAs
-fn print_asas(options: &Options, cves: &HashMap<String, ASA>) {
+fn print_asas(options: &Options, cves: &BTreeMap<String, ASA>) {
     for (pkg, asa) in cves {
         let msg = format!("Package {} is affected by {:?}", pkg, asa.cve);
 
