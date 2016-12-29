@@ -136,28 +136,11 @@ fn main() {
                 continue;
             }
 
-            let info = AVG {
-                issues: avg["issues"]
-                    .as_array()
-                    .unwrap()
-                    .iter()
-                    .map(|s| s.as_string().unwrap().to_string())
-                    .collect(),
-                fixed: match avg["fixed"].as_string() {
-                    Some(s) => Some(s.to_string()),
-                    None => None,
-                },
-                severity: avg["severity"]
-                    .as_string()
-                    .unwrap()
-                    .to_string()
-                    .parse::<Severity>()
-                    .unwrap(),
-            };
-
             let status = avg["status"].as_string().unwrap();
 
             if !status.starts_with("Not affected") {
+                let info = to_avg(avg);
+
                 for p in packages {
                     match cves.entry(p) {
                             Occupied(c) => c.into_mut(),
@@ -184,6 +167,27 @@ fn main() {
 
     let merged = merge_avgs(&pacman, &affected_avgs);
     print_avgs(&options, &merged);
+}
+
+fn to_avg(data: &Json) -> AVG {
+    AVG {
+        issues: data["issues"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s.as_string().unwrap().to_string())
+            .collect(),
+        fixed: match data["fixed"].as_string() {
+            Some(s) => Some(s.to_string()),
+            None => None,
+        },
+        severity: data["severity"]
+            .as_string()
+            .unwrap()
+            .to_string()
+            .parse::<Severity>()
+            .unwrap(),
+    }
 }
 
 /// Given a package and an AVG, returns true if the system is affected
