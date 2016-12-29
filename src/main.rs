@@ -169,6 +169,7 @@ fn main() {
     print_avgs(&options, &merged);
 }
 
+/// Converts a JSON to an AVG
 fn to_avg(data: &Json) -> AVG {
     AVG {
         issues: data["issues"]
@@ -188,6 +189,27 @@ fn to_avg(data: &Json) -> AVG {
             .parse::<Severity>()
             .unwrap(),
     }
+}
+
+#[test]
+fn test_to_avg() {
+    let json = Json::from_str("{\"issues\": [\"CVE-1\", \"CVE-2\"], \"fixed\": \"1.0\", \
+                               \"severity\": \"High\"}")
+        .unwrap();
+
+    let avg1 = to_avg(&json);
+    assert_eq!(2, avg1.issues.len());
+    assert_eq!(Some("1.0".to_string()), avg1.fixed);
+    assert_eq!(Severity::High, avg1.severity);
+
+    let json = Json::from_str("{\"issues\": [\"CVE-1\"], \"fixed\": null, \
+                               \"severity\": \"Low\"}")
+        .unwrap();
+
+    let avg2 = to_avg(&json);
+    assert_eq!(1, avg2.issues.len());
+    assert_eq!(None, avg2.fixed);
+    assert_eq!(Severity::Low, avg2.severity);
 }
 
 /// Given a package and an AVG, returns true if the system is affected
