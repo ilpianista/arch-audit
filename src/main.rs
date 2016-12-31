@@ -34,11 +34,34 @@ impl FromStr for Severity {
 
     fn from_str(s: &str) -> Result<Severity, ()> {
         match s {
-            "Critical" => Ok(Severity::Critical),
-            "High" => Ok(Severity::High),
-            "Medium" => Ok(Severity::Medium),
             "Low" => Ok(Severity::Low),
+            "Medium" => Ok(Severity::Medium),
+            "High" => Ok(Severity::High),
+            "Critical" => Ok(Severity::Critical),
             _ => Ok(Severity::Unknown),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum Status {
+    Unknown,
+    Vulnerable,
+    Testing,
+    Fixed,
+    NotAffected,
+}
+
+impl FromStr for Status {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Status, ()> {
+        match s {
+            "Vulnerable" => Ok(Status::Vulnerable),
+            "Testing" => Ok(Status::Testing),
+            "Fixed" => Ok(Status::Fixed),
+            "Not affected" => Ok(Status::NotAffected),
+            _ => Ok(Status::Unknown),
         }
     }
 }
@@ -48,6 +71,7 @@ struct AVG {
     issues: Vec<String>,
     fixed: Option<String>,
     severity: Severity,
+    status: Status,
 }
 
 impl Default for AVG {
@@ -56,6 +80,7 @@ impl Default for AVG {
             issues: vec![],
             fixed: None,
             severity: Severity::Unknown,
+            status: Status::Unknown,
         }
     }
 }
@@ -136,11 +161,9 @@ fn main() {
                 continue;
             }
 
-            let status = avg["status"].as_string().unwrap();
+            let info = to_avg(avg);
 
-            if !status.starts_with("Not affected") {
-                let info = to_avg(avg);
-
+            if info.status != Status::NotAffected {
                 for p in packages {
                     match cves.entry(p) {
                             Occupied(c) => c.into_mut(),
@@ -188,28 +211,36 @@ fn to_avg(data: &Json) -> AVG {
             .to_string()
             .parse::<Severity>()
             .unwrap(),
+        status: data["status"]
+            .as_string()
+            .unwrap()
+            .to_string()
+            .parse::<Status>()
+            .unwrap(),
     }
 }
 
 #[test]
 fn test_to_avg() {
     let json = Json::from_str("{\"issues\": [\"CVE-1\", \"CVE-2\"], \"fixed\": \"1.0\", \
-                               \"severity\": \"High\"}")
+                               \"severity\": \"High\", \"status\": \"Not affected\"}")
         .unwrap();
 
     let avg1 = to_avg(&json);
     assert_eq!(2, avg1.issues.len());
     assert_eq!(Some("1.0".to_string()), avg1.fixed);
     assert_eq!(Severity::High, avg1.severity);
+    assert_eq!(Status::NotAffected, avg1.status);
 
     let json = Json::from_str("{\"issues\": [\"CVE-1\"], \"fixed\": null, \
-                               \"severity\": \"Low\"}")
+                               \"severity\": \"Low\", \"status\": \"Vulnerable\"}")
         .unwrap();
 
     let avg2 = to_avg(&json);
     assert_eq!(1, avg2.issues.len());
     assert_eq!(None, avg2.fixed);
     assert_eq!(Severity::Low, avg2.severity);
+    assert_eq!(Status::Vulnerable, avg2.status);
 }
 
 /// Given a package and an AVG, returns true if the system is affected
@@ -242,6 +273,7 @@ fn test_system_is_affected() {
         issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
         fixed: Some("1.0.0".to_string()),
         severity: Severity::Unknown,
+        status: Status::Unknown,
     };
 
     assert_eq!(false,
@@ -251,7 +283,9 @@ fn test_system_is_affected() {
         issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
         fixed: Some("7.0.0".to_string()),
         severity: Severity::Unknown,
+        status: Status::Unknown,
     };
+
     assert!(system_is_affected(&pacman, &"pacman".to_string(), &avg2));
 }
 
@@ -287,6 +321,7 @@ fn merge_avgs(pacman: &alpm::Alpm, cves: &BTreeMap<String, Vec<AVG>>) -> BTreeMa
         let mut avg_issues = vec![];
         let mut avg_fixed: Option<String> = None;
         let mut avg_severity = Severity::Unknown;
+        let mut avg_status = Status::Unknown;
 
         for a in list.iter() {
             avg_issues.append(&mut a.issues.clone());
@@ -309,12 +344,18 @@ fn merge_avgs(pacman: &alpm::Alpm, cves: &BTreeMap<String, Vec<AVG>>) -> BTreeMa
             if a.severity > avg_severity {
                 avg_severity = a.severity.clone();
             }
+
+            // We only care about testing stuff
+            if a.status == Status::Testing {
+                avg_status = a.status.clone();
+            }
         }
 
         let avg = AVG {
             issues: avg_issues,
             fixed: avg_fixed,
             severity: avg_severity,
+            status: avg_status,
         };
         avgs.insert(pkg.to_string(), avg);
     }
@@ -330,12 +371,14 @@ fn test_merge_avgs() {
         issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
         fixed: Some("1.0.0".to_string()),
         severity: Severity::Unknown,
+        status: Status::Fixed,
     };
 
     let avg2 = AVG {
         issues: vec!["CVE-4".to_string(), "CVE-10".to_string()],
         fixed: Some("0.9.8".to_string()),
         severity: Severity::High,
+        status: Status::Testing,
     };
 
     assert!(Severity::Critical > Severity::High);
@@ -351,6 +394,8 @@ fn test_merge_avgs() {
     assert_eq!(4, merged.get(&"package".to_string()).unwrap().issues.len());
     assert_eq!(Severity::High,
                merged.get(&"package".to_string()).unwrap().severity);
+    assert_eq!(Status::Testing,
+               merged.get(&"package".to_string()).unwrap().status);
 }
 
 /// Print a list of AVGs
@@ -371,7 +416,16 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, AVG>) {
                                      f.replace("%n", pkg.as_str())
                                          .replace("%c", avg.issues.iter().join(",").as_str()))
                         }
-                        None => println!("{}. Update to {}!", msg, v),
+                        None => {
+                            if avg.status == Status::Testing {
+                                println!("{}. {:?} risk! Update to {} from testing repos!",
+                                         msg,
+                                         avg.severity,
+                                         v)
+                            } else {
+                                println!("{}. {:?} risk! Update to {}!", msg, avg.severity, v)
+                            }
+                        }
                     }
                 }
             }
