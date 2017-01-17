@@ -18,72 +18,9 @@ use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::default::Default;
 use std::process::exit;
 use std::str;
-use std::str::FromStr;
 
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
-enum Severity {
-    Unknown,
-    Low,
-    Medium,
-    High,
-    Critical,
-}
-
-impl FromStr for Severity {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Severity, ()> {
-        match s {
-            "Low" => Ok(Severity::Low),
-            "Medium" => Ok(Severity::Medium),
-            "High" => Ok(Severity::High),
-            "Critical" => Ok(Severity::Critical),
-            _ => Ok(Severity::Unknown),
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-enum Status {
-    Unknown,
-    Vulnerable,
-    Testing,
-    Fixed,
-    NotAffected,
-}
-
-impl FromStr for Status {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Status, ()> {
-        match s {
-            "Vulnerable" => Ok(Status::Vulnerable),
-            "Testing" => Ok(Status::Testing),
-            "Fixed" => Ok(Status::Fixed),
-            "Not affected" => Ok(Status::NotAffected),
-            _ => Ok(Status::Unknown),
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-struct AVG {
-    issues: Vec<String>,
-    fixed: Option<String>,
-    severity: Severity,
-    status: Status,
-}
-
-impl Default for AVG {
-    fn default() -> AVG {
-        AVG {
-            issues: vec![],
-            fixed: None,
-            severity: Severity::Unknown,
-            status: Status::Unknown,
-        }
-    }
-}
+mod avg;
+mod enums;
 
 struct Options {
     format: Option<String>,
@@ -127,10 +64,10 @@ fn main() {
         easy.url(avgs_url).expect("curl::Easy::url failed");
         let mut transfer = easy.transfer();
         transfer.write_function(|data| {
-            avgs.push_str(str::from_utf8(data).expect("str conversion failed"));
-            Ok(data.len())
-        })
-        .expect("write_function failed");
+                avgs.push_str(str::from_utf8(data).expect("str conversion failed"));
+                Ok(data.len())
+            })
+            .expect("write_function failed");
         match transfer.perform() {
             Ok(_) => {}
             Err(_) => {
@@ -141,8 +78,9 @@ fn main() {
     }
 
     let pacman = match args.value_of("dbpath") {
-        Some(path) => alpm::Alpm::with_dbpath(path.to_string())
-                                 .expect("alpm::Alpm::with_dbpath failed"),
+        Some(path) => {
+            alpm::Alpm::with_dbpath(path.to_string()).expect("alpm::Alpm::with_dbpath failed")
+        }
         None => alpm::Alpm::new().expect("alpm::Alpm::new failed"),
     };
 
@@ -164,7 +102,7 @@ fn main() {
 
             let info = to_avg(avg);
 
-            if info.status != Status::NotAffected {
+            if info.status != enums::Status::NotAffected {
                 for p in packages {
                     match cves.entry(p) {
                             Occupied(c) => c.into_mut(),
@@ -193,9 +131,9 @@ fn main() {
     print_avgs(&options, &merged);
 }
 
-/// Converts a JSON to an AVG
-fn to_avg(data: &Json) -> AVG {
-    AVG {
+/// Converts a JSON to an avg::AVG
+fn to_avg(data: &Json) -> avg::AVG {
+    avg::AVG {
         issues: data["issues"]
             .as_array()
             .expect("Json::as_array failed")
@@ -210,13 +148,13 @@ fn to_avg(data: &Json) -> AVG {
             .as_string()
             .expect("Json::as_string failed")
             .to_string()
-            .parse::<Severity>()
+            .parse::<enums::Severity>()
             .expect("parse::<Severity> failed"),
         status: data["status"]
             .as_string()
             .expect("Json::as_string failed")
             .to_string()
-            .parse::<Status>()
+            .parse::<enums::Status>()
             .expect("parse::<Status> failed"),
     }
 }
@@ -230,8 +168,8 @@ fn test_to_avg() {
     let avg1 = to_avg(&json);
     assert_eq!(2, avg1.issues.len());
     assert_eq!(Some("1.0".to_string()), avg1.fixed);
-    assert_eq!(Severity::High, avg1.severity);
-    assert_eq!(Status::NotAffected, avg1.status);
+    assert_eq!(enums::Severity::High, avg1.severity);
+    assert_eq!(enums::Status::NotAffected, avg1.status);
 
     let json = Json::from_str("{\"issues\": [\"CVE-1\"], \"fixed\": null, \
                                \"severity\": \"Low\", \"status\": \"Vulnerable\"}")
@@ -240,12 +178,12 @@ fn test_to_avg() {
     let avg2 = to_avg(&json);
     assert_eq!(1, avg2.issues.len());
     assert_eq!(None, avg2.fixed);
-    assert_eq!(Severity::Low, avg2.severity);
-    assert_eq!(Status::Vulnerable, avg2.status);
+    assert_eq!(enums::Severity::Low, avg2.severity);
+    assert_eq!(enums::Status::Vulnerable, avg2.status);
 }
 
-/// Given a package and an AVG, returns true if the system is affected
-fn system_is_affected(pacman: &alpm::Alpm, pkg: &String, avg: &AVG) -> bool {
+/// Given a package and an avg::AVG, returns true if the system is affected
+fn system_is_affected(pacman: &alpm::Alpm, pkg: &String, avg: &avg::AVG) -> bool {
     match pacman.query_package_version(pkg.clone()) {
         Ok(v) => {
             info!("Found installed version {} for package {}", v, pkg);
@@ -270,21 +208,21 @@ fn system_is_affected(pacman: &alpm::Alpm, pkg: &String, avg: &AVG) -> bool {
 fn test_system_is_affected() {
     let pacman = alpm::Alpm::new().expect("Alpm::new failed");
 
-    let avg1 = AVG {
+    let avg1 = avg::AVG {
         issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
         fixed: Some("1.0.0".to_string()),
-        severity: Severity::Unknown,
-        status: Status::Unknown,
+        severity: enums::Severity::Unknown,
+        status: enums::Status::Unknown,
     };
 
     assert_eq!(false,
                system_is_affected(&pacman, &"pacman".to_string(), &avg1));
 
-    let avg2 = AVG {
+    let avg2 = avg::AVG {
         issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
         fixed: Some("7.0.0".to_string()),
-        severity: Severity::Unknown,
-        status: Status::Unknown,
+        severity: enums::Severity::Unknown,
+        status: enums::Status::Unknown,
     };
 
     assert!(system_is_affected(&pacman, &"pacman".to_string(), &avg2));
@@ -315,14 +253,16 @@ fn test_package_is_installed() {
     assert_eq!(false, package_is_installed(&pacman, &packages));
 }
 
-/// Merge a list of AVGs into a single AVG using major version as version
-fn merge_avgs(pacman: &alpm::Alpm, cves: &BTreeMap<String, Vec<AVG>>) -> BTreeMap<String, AVG> {
-    let mut avgs: BTreeMap<String, AVG> = BTreeMap::new();
+/// Merge a list of avg::AVG into a single avg::AVG using major version as version
+fn merge_avgs(pacman: &alpm::Alpm,
+              cves: &BTreeMap<String, Vec<avg::AVG>>)
+              -> BTreeMap<String, avg::AVG> {
+    let mut avgs: BTreeMap<String, avg::AVG> = BTreeMap::new();
     for (pkg, list) in cves.iter() {
         let mut avg_issues = vec![];
         let mut avg_fixed: Option<String> = None;
-        let mut avg_severity = Severity::Unknown;
-        let mut avg_status = Status::Unknown;
+        let mut avg_severity = enums::Severity::Unknown;
+        let mut avg_status = enums::Status::Unknown;
 
         for a in list.iter() {
             avg_issues.append(&mut a.issues.clone());
@@ -332,7 +272,7 @@ fn merge_avgs(pacman: &alpm::Alpm, cves: &BTreeMap<String, Vec<AVG>>) -> BTreeMa
                     match a.fixed {
                         Some(ref v) => {
                             match pacman.vercmp(version.to_string(), v.to_string())
-                                        .expect("Alpm::vercmp failed") {
+                                .expect("Alpm::vercmp failed") {
                                 Ordering::Greater => avg_fixed = a.fixed.clone(),
                                 _ => {}
                             }
@@ -348,12 +288,12 @@ fn merge_avgs(pacman: &alpm::Alpm, cves: &BTreeMap<String, Vec<AVG>>) -> BTreeMa
             }
 
             // We only care about testing stuff
-            if a.status == Status::Testing {
+            if a.status == enums::Status::Testing {
                 avg_status = a.status.clone();
             }
         }
 
-        let avg = AVG {
+        let avg = avg::AVG {
             issues: avg_issues,
             fixed: avg_fixed,
             severity: avg_severity,
@@ -369,21 +309,21 @@ fn merge_avgs(pacman: &alpm::Alpm, cves: &BTreeMap<String, Vec<AVG>>) -> BTreeMa
 fn test_merge_avgs() {
     let mut avgs: BTreeMap<String, Vec<_>> = BTreeMap::new();
 
-    let avg1 = AVG {
+    let avg1 = avg::AVG {
         issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
         fixed: Some("1.0.0".to_string()),
-        severity: Severity::Unknown,
-        status: Status::Fixed,
+        severity: enums::Severity::Unknown,
+        status: enums::Status::Fixed,
     };
 
-    let avg2 = AVG {
+    let avg2 = avg::AVG {
         issues: vec!["CVE-4".to_string(), "CVE-10".to_string()],
         fixed: Some("0.9.8".to_string()),
-        severity: Severity::High,
-        status: Status::Testing,
+        severity: enums::Severity::High,
+        status: enums::Status::Testing,
     };
 
-    assert!(Severity::Critical > Severity::High);
+    assert!(enums::Severity::Critical > enums::Severity::High);
 
     avgs.insert("package".to_string(), vec![avg1.clone(), avg2.clone()]);
 
@@ -393,16 +333,19 @@ fn test_merge_avgs() {
     let merged = merge_avgs(&pacman, &avgs);
 
     assert_eq!(2, merged.len());
-    assert_eq!(4, merged.get(&"package".to_string()).expect("'package' key not found")
-                                                    .issues.len());
-    assert_eq!(Severity::High,
+    assert_eq!(4,
+               merged.get(&"package".to_string())
+                   .expect("'package' key not found")
+                   .issues
+                   .len());
+    assert_eq!(enums::Severity::High,
                merged.get(&"package".to_string()).expect("'package' key not found").severity);
-    assert_eq!(Status::Testing,
+    assert_eq!(enums::Status::Testing,
                merged.get(&"package".to_string()).expect("'package' key not found").status);
 }
 
-/// Print a list of AVGs
-fn print_avgs(options: &Options, avgs: &BTreeMap<String, AVG>) {
+/// Print a list of avg::AVG
+fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
     for (pkg, avg) in avgs {
         let msg = format!("Package {} is affected by {:?}", pkg, avg.issues);
 
@@ -420,7 +363,7 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, AVG>) {
                                          .replace("%c", avg.issues.iter().join(",").as_str()))
                         }
                         None => {
-                            if avg.status == Status::Testing {
+                            if avg.status == enums::Status::Testing {
                                 println!("{}. {:?} risk! Update to {} from testing repos!",
                                          msg,
                                          avg.severity,
