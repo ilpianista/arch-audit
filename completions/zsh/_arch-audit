@@ -1,0 +1,15 @@
+#compdef arch-audit
+
+typeset -A opt_args
+
+local context state line state_descr
+typeset -A opt_args
+
+_arguments -s -S \
+"(-h --help)"{-h,--help}"[Prints help information]" \
+"(*-q --quiet)"{"*-q","--quiet"}"[Show only vulnerable package names and their versions]" \
+"(-u --upgradable)"{-u,--upgradable}"[Show only packages that have already been fixed]" \
+"(-V --version)"{-V,--version}"[Prints version information]" \
+"(-b --dbpath)"{-b,--dbpath}"[Set an alternate database location]:dbpath:_files -/" \
+"(-f --format)"{-f,--format}"[Specify a format to control the output. Placeholders are %n (pkgname) and %c (CVEs)]:format" \
+&& return 0
