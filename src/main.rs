@@ -102,7 +102,7 @@ impl Default for Options {
 }
 
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init().expect("env_logger failed");
 
     let yaml = load_yaml!("cli.yml");
     let args = App::from_yaml(yaml).get_matches();
@@ -124,13 +124,13 @@ fn main() {
         let avgs_url = "https://security.archlinux.org/json";
 
         let mut easy = Easy::new();
-        easy.url(avgs_url).unwrap();
+        easy.url(avgs_url).expect("curl::Easy::url failed");
         let mut transfer = easy.transfer();
         transfer.write_function(|data| {
-                avgs.push_str(str::from_utf8(data).unwrap());
-                Ok(data.len())
-            })
-            .unwrap();
+            avgs.push_str(str::from_utf8(data).expect("str conversion failed"));
+            Ok(data.len())
+        })
+        .expect("write_function failed");
         match transfer.perform() {
             Ok(_) => {}
             Err(_) => {
@@ -141,20 +141,21 @@ fn main() {
     }
 
     let pacman = match args.value_of("dbpath") {
-        Some(path) => alpm::Alpm::with_dbpath(path.to_string()).unwrap(),
-        None => alpm::Alpm::new().unwrap(),
+        Some(path) => alpm::Alpm::with_dbpath(path.to_string())
+                                 .expect("alpm::Alpm::with_dbpath failed"),
+        None => alpm::Alpm::new().expect("alpm::Alpm::new failed"),
     };
 
     let mut cves: BTreeMap<String, Vec<_>> = BTreeMap::new();
     {
-        let json = Json::from_str(&avgs).unwrap();
+        let json = Json::from_str(&avgs).expect("Json::from_str failed");
 
-        for avg in json.as_array().unwrap() {
+        for avg in json.as_array().expect("Json::as_array failed") {
             let packages = avg["packages"]
                 .as_array()
-                .unwrap()
+                .expect("Json::as_array failed")
                 .iter()
-                .map(|s| s.as_string().unwrap().to_string())
+                .map(|s| s.as_string().expect("Json::as_string failed").to_string())
                 .collect::<Vec<_>>();
 
             if !package_is_installed(&pacman, &packages) {
@@ -197,9 +198,9 @@ fn to_avg(data: &Json) -> AVG {
     AVG {
         issues: data["issues"]
             .as_array()
-            .unwrap()
+            .expect("Json::as_array failed")
             .iter()
-            .map(|s| s.as_string().unwrap().to_string())
+            .map(|s| s.as_string().expect("Json::as_string failed").to_string())
             .collect(),
         fixed: match data["fixed"].as_string() {
             Some(s) => Some(s.to_string()),
@@ -207,16 +208,16 @@ fn to_avg(data: &Json) -> AVG {
         },
         severity: data["severity"]
             .as_string()
-            .unwrap()
+            .expect("Json::as_string failed")
             .to_string()
             .parse::<Severity>()
-            .unwrap(),
+            .expect("parse::<Severity> failed"),
         status: data["status"]
             .as_string()
-            .unwrap()
+            .expect("Json::as_string failed")
             .to_string()
             .parse::<Status>()
-            .unwrap(),
+            .expect("parse::<Status> failed"),
     }
 }
 
@@ -224,7 +225,7 @@ fn to_avg(data: &Json) -> AVG {
 fn test_to_avg() {
     let json = Json::from_str("{\"issues\": [\"CVE-1\", \"CVE-2\"], \"fixed\": \"1.0\", \
                                \"severity\": \"High\", \"status\": \"Not affected\"}")
-        .unwrap();
+        .expect("Json::from_str failed");
 
     let avg1 = to_avg(&json);
     assert_eq!(2, avg1.issues.len());
@@ -234,7 +235,7 @@ fn test_to_avg() {
 
     let json = Json::from_str("{\"issues\": [\"CVE-1\"], \"fixed\": null, \
                                \"severity\": \"Low\", \"status\": \"Vulnerable\"}")
-        .unwrap();
+        .expect("Json::from_str failed");
 
     let avg2 = to_avg(&json);
     assert_eq!(1, avg2.issues.len());
@@ -251,7 +252,7 @@ fn system_is_affected(pacman: &alpm::Alpm, pkg: &String, avg: &AVG) -> bool {
             match avg.fixed {
                 Some(ref version) => {
                     info!("Comparing with fixed version {}", version);
-                    match pacman.vercmp(v.clone(), version.clone()).unwrap() {
+                    match pacman.vercmp(v.clone(), version.clone()).expect("Alpm::vercmp failed") {
                         Ordering::Less => return true,
                         _ => {}
                     };
@@ -267,7 +268,7 @@ fn system_is_affected(pacman: &alpm::Alpm, pkg: &String, avg: &AVG) -> bool {
 
 #[test]
 fn test_system_is_affected() {
-    let pacman = alpm::Alpm::new().unwrap();
+    let pacman = alpm::Alpm::new().expect("Alpm::new failed");
 
     let avg1 = AVG {
         issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
@@ -305,7 +306,7 @@ fn package_is_installed(pacman: &alpm::Alpm, packages: &Vec<String>) -> bool {
 
 #[test]
 fn test_package_is_installed() {
-    let pacman = alpm::Alpm::new().unwrap();
+    let pacman = alpm::Alpm::new().expect("Alpm::new failed");
 
     let packages = vec!["pacman".to_string(), "pac".to_string()];
     assert!(package_is_installed(&pacman, &packages));
@@ -330,7 +331,8 @@ fn merge_avgs(pacman: &alpm::Alpm, cves: &BTreeMap<String, Vec<AVG>>) -> BTreeMa
                 Some(ref version) => {
                     match a.fixed {
                         Some(ref v) => {
-                            match pacman.vercmp(version.to_string(), v.to_string()).unwrap() {
+                            match pacman.vercmp(version.to_string(), v.to_string())
+                                        .expect("Alpm::vercmp failed") {
                                 Ordering::Greater => avg_fixed = a.fixed.clone(),
                                 _ => {}
                             }
@@ -387,15 +389,16 @@ fn test_merge_avgs() {
 
     avgs.insert("package2".to_string(), vec![avg1, avg2]);
 
-    let pacman = alpm::Alpm::new().unwrap();
+    let pacman = alpm::Alpm::new().expect("Alpm::new failed");
     let merged = merge_avgs(&pacman, &avgs);
 
     assert_eq!(2, merged.len());
-    assert_eq!(4, merged.get(&"package".to_string()).unwrap().issues.len());
+    assert_eq!(4, merged.get(&"package".to_string()).expect("'package' key not found")
+                                                    .issues.len());
     assert_eq!(Severity::High,
-               merged.get(&"package".to_string()).unwrap().severity);
+               merged.get(&"package".to_string()).expect("'package' key not found").severity);
     assert_eq!(Status::Testing,
-               merged.get(&"package".to_string()).unwrap().status);
+               merged.get(&"package".to_string()).expect("'package' key not found").status);
 }
 
 /// Print a list of AVGs
