@@ -58,7 +58,7 @@ fn main() {
     let mut avgs = String::new();
     {
         info!("Downloading AVGs...");
-        let avgs_url = "https://security.archlinux.org/json";
+        let avgs_url = "https://security.archlinux.org/issues/all.json";
 
         let mut easy = Easy::new();
         easy.url(avgs_url).expect("curl::Easy::url failed");
