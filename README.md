@@ -42,6 +42,10 @@ After the installation just execute `arch-audit`.
     $ arch-audit -uf "%n|%c"
     curl|CVE-2016-9594,CVE-2016-9586
 
+## Donate
+
+Donations via either [PayPal](https://www.paypal.me/andreascarpino) or [Bitcoins](bitcoin://1Ph3hFEoQaD4PK6MhL3kBNNh9FZFBfisEH) are always welcomed, thank you!
+
 ## License
 
 MIT
