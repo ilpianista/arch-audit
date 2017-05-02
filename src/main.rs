@@ -6,12 +6,12 @@ extern crate env_logger;
 extern crate itertools;
 #[macro_use]
 extern crate log;
-extern crate rustc_serialize;
+extern crate serde_json;
 
 use clap::App;
 use curl::easy::Easy;
 use itertools::Itertools;
-use rustc_serialize::json::Json;
+use serde_json::Value;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
@@ -87,18 +87,14 @@ fn main() {
 
     let mut cves: BTreeMap<String, Vec<_>> = BTreeMap::new();
     {
-        let json = Json::from_str(&avgs).expect("Json::from_str failed");
+        let json: Value = serde_json::from_str(&avgs).expect("serde_json::from_str failed");
 
-        for avg in json.as_array().expect("Json::as_array failed") {
+        for avg in json.as_array().expect("Value::as_array failed") {
             let packages = avg["packages"]
                 .as_array()
-                .expect("Json::as_array failed")
+                .expect("Value::as_array failed")
                 .iter()
-                .map(|s| {
-                         s.as_string()
-                             .expect("Json::as_string failed")
-                             .to_string()
-                     })
+                .map(|s| s.as_str().expect("Value::as_str failed").to_string())
                 .collect::<Vec<_>>();
 
             if !package_is_installed(&pacman, &packages) {
@@ -137,31 +133,27 @@ fn main() {
 }
 
 /// Converts a JSON to an `avg::AVG`
-fn to_avg(data: &Json) -> avg::AVG {
+fn to_avg(data: &Value) -> avg::AVG {
     avg::AVG {
         issues: data["issues"]
             .as_array()
-            .expect("Json::as_array failed")
+            .expect("Value::as_array failed")
             .iter()
-            .map(|s| {
-                     s.as_string()
-                         .expect("Json::as_string failed")
-                         .to_string()
-                 })
+            .map(|s| s.as_str().expect("Value::as_str failed").to_string())
             .collect(),
-        fixed: match data["fixed"].as_string() {
+        fixed: match data["fixed"].as_str() {
             Some(s) => Some(s.to_string()),
             None => None,
         },
         severity: data["severity"]
-            .as_string()
-            .expect("Json::as_string failed")
+            .as_str()
+            .expect("Value::as_str failed")
             .to_string()
             .parse::<enums::Severity>()
             .expect("parse::<Severity> failed"),
         status: data["status"]
-            .as_string()
-            .expect("Json::as_string failed")
+            .as_str()
+            .expect("Value::as_str failed")
             .to_string()
             .parse::<enums::Status>()
             .expect("parse::<Status> failed"),
@@ -170,9 +162,9 @@ fn to_avg(data: &Json) -> avg::AVG {
 
 #[test]
 fn test_to_avg() {
-    let json = Json::from_str("{\"issues\": [\"CVE-1\", \"CVE-2\"], \"fixed\": \"1.0\", \
+    let json: Value = serde_json::from_str("{\"issues\": [\"CVE-1\", \"CVE-2\"], \"fixed\": \"1.0\", \
                                \"severity\": \"High\", \"status\": \"Not affected\"}")
-            .expect("Json::from_str failed");
+            .expect("serde_json::from_str failed");
 
     let avg1 = to_avg(&json);
     assert_eq!(2, avg1.issues.len());
@@ -180,9 +172,9 @@ fn test_to_avg() {
     assert_eq!(enums::Severity::High, avg1.severity);
     assert_eq!(enums::Status::NotAffected, avg1.status);
 
-    let json = Json::from_str("{\"issues\": [\"CVE-1\"], \"fixed\": null, \
+    let json: Value = serde_json::from_str("{\"issues\": [\"CVE-1\"], \"fixed\": null, \
                                \"severity\": \"Low\", \"status\": \"Vulnerable\"}")
-            .expect("Json::from_str failed");
+            .expect("serde_json::from_str failed");
 
     let avg2 = to_avg(&json);
     assert_eq!(1, avg2.issues.len());
