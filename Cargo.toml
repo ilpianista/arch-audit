@@ -16,6 +16,6 @@ alpm = "^0.4"
 clap = {version = "^2", features = ["yaml"]}
 curl = "^0.4"
 env_logger = "^0.3"
-itertools = "^0.5"
+itertools = "^0.6"
 log = "^0.3"
 serde_json = "^1.0"
