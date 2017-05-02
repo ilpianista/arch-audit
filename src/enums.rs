@@ -1,6 +1,7 @@
+use std::fmt;
 use std::str::FromStr;
 
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd)]
 pub enum Severity {
     Unknown,
     Low,
@@ -23,7 +24,21 @@ impl FromStr for Severity {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+impl fmt::Display for Severity {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(
+            match *self {
+                Severity::Low => "Low risk",
+                Severity::Medium => "Medium risk",
+                Severity::High => "High risk",
+                Severity::Critical => "Critical risk",
+                Severity::Unknown => "Unknown risk",
+            }
+        )
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Status {
     Unknown,
     Vulnerable,

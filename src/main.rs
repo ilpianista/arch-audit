@@ -117,7 +117,7 @@ fn main() {
     let mut affected_avgs: BTreeMap<String, Vec<_>> = BTreeMap::new();
     for (pkg, avgs) in cves {
         for avg in &avgs {
-            if system_is_affected(&pacman, &pkg, &avg) {
+            if system_is_affected(&pacman, &pkg, avg) {
                 match affected_avgs.entry(pkg.clone()) {
                         Occupied(c) => c.into_mut(),
                         Vacant(c) => c.insert(vec![]),
@@ -131,7 +131,7 @@ fn main() {
     print_avgs(&options, &merged);
 }
 
-/// Converts a JSON to an avg::AVG
+/// Converts a JSON to an `avg::AVG`
 fn to_avg(data: &Json) -> avg::AVG {
     avg::AVG {
         issues: data["issues"]
@@ -182,18 +182,19 @@ fn test_to_avg() {
     assert_eq!(enums::Status::Vulnerable, avg2.status);
 }
 
-/// Given a package and an avg::AVG, returns true if the system is affected
-fn system_is_affected(pacman: &alpm::Alpm, pkg: &String, avg: &avg::AVG) -> bool {
+/// Given a package and an `avg::AVG`, returns true if the system is affected
+fn system_is_affected(pacman: &alpm::Alpm, pkg: &str, avg: &avg::AVG) -> bool {
     match pacman.query_package_version(pkg.clone()) {
         Ok(v) => {
             info!("Found installed version {} for package {}", v, pkg);
             match avg.fixed {
                 Some(ref version) => {
                     info!("Comparing with fixed version {}", version);
-                    match pacman.vercmp(v.clone(), version.clone()).expect("Alpm::vercmp failed") {
-                        Ordering::Less => return true,
-                        _ => {}
-                    };
+                    let cmp = pacman.vercmp(v.clone(), version.clone())
+                        .expect("Alpm::vercmp failed");
+                    if let Ordering::Less = cmp {
+                        return true
+                    }
                 }
                 None => return true,
             };
@@ -201,7 +202,7 @@ fn system_is_affected(pacman: &alpm::Alpm, pkg: &String, avg: &avg::AVG) -> bool
         Err(_) => debug!("Package {} not installed", pkg),
     }
 
-    return false;
+    false
 }
 
 #[test]
@@ -229,7 +230,7 @@ fn test_system_is_affected() {
 }
 
 /// Given a list of package names, returns true when at least one is installed
-fn package_is_installed(pacman: &alpm::Alpm, packages: &Vec<String>) -> bool {
+fn package_is_installed(pacman: &alpm::Alpm, packages: &[String]) -> bool {
     for pkg in packages {
         match pacman.query_package_version(pkg.as_str()) {
             Ok(_) => {
@@ -239,7 +240,7 @@ fn package_is_installed(pacman: &alpm::Alpm, packages: &Vec<String>) -> bool {
             Err(_) => debug!("Package {} not installed", pkg),
         }
     }
-    return false;
+    false
 }
 
 #[test]
@@ -253,7 +254,7 @@ fn test_package_is_installed() {
     assert_eq!(false, package_is_installed(&pacman, &packages));
 }
 
-/// Merge a list of avg::AVG into a single avg::AVG using major version as version
+/// Merge a list of `avg::AVG` into a single `avg::AVG` using major version as version
 fn merge_avgs(pacman: &alpm::Alpm,
               cves: &BTreeMap<String, Vec<avg::AVG>>)
               -> BTreeMap<String, avg::AVG> {
@@ -269,22 +270,19 @@ fn merge_avgs(pacman: &alpm::Alpm,
 
             match avg_fixed.clone() {
                 Some(ref version) => {
-                    match a.fixed {
-                        Some(ref v) => {
-                            match pacman.vercmp(version.to_string(), v.to_string())
-                                .expect("Alpm::vercmp failed") {
-                                Ordering::Greater => avg_fixed = a.fixed.clone(),
-                                _ => {}
-                            }
+                    if let Some(ref v) = a.fixed {
+                        let cmp = pacman.vercmp(version.to_string(), v.to_string())
+                            .expect("Alpm::vercmp failed");
+                        if let Ordering::Greater = cmp {
+                            avg_fixed = a.fixed.clone();
                         }
-                        None => {}
                     }
                 }
                 None => avg_fixed = a.fixed.clone(),
             }
 
             if a.severity > avg_severity {
-                avg_severity = a.severity.clone();
+                avg_severity = a.severity;
             }
 
             // We only care about testing stuff
@@ -344,17 +342,15 @@ fn test_merge_avgs() {
                merged.get(&"package".to_string()).expect("'package' key not found").status);
 }
 
-/// Print a list of avg::AVG
+/// Print a list of `avg::AVG`
 fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
     for (pkg, avg) in avgs {
-        let msg = format!("Package {} is affected by {:?}", pkg, avg.issues);
-
         match avg.fixed {
             Some(ref v) => {
-                if options.quiet == 1 {
-                    println!("{}>={}", pkg, v);
-                } else if options.quiet >= 2 {
+                if options.quiet >= 2 {
                     println!("{}", pkg);
+                } else if options.quiet == 1 {
+                    println!("{}>={}", pkg, v);
                 } else {
                     match options.format {
                         Some(ref f) => {
@@ -363,30 +359,34 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                                          .replace("%c", avg.issues.iter().join(",").as_str()))
                         }
                         None => {
+                            print!("{}: Package {} is affected by {}.",
+                                   avg.severity,
+                                   pkg,
+                                   avg.issues.join(", "));
                             if avg.status == enums::Status::Testing {
-                                println!("{}. {:?} risk! Update to {} from testing repos!",
-                                         msg,
-                                         avg.severity,
-                                         v)
+                                println!("Update to {} from testing repos!", v)
                             } else {
-                                println!("{}. {:?} risk! Update to {}!", msg, avg.severity, v)
+                                println!("Update to {}!", v)
                             }
                         }
                     }
                 }
             }
-            None => {
-                if !options.upgradable_only {
-                    if options.quiet > 0 {
-                        println!("{}", pkg);
-                    } else {
-                        match options.format {
-                            Some(ref f) => {
-                                println!("{}",
-                                         f.replace("%n", pkg.as_str())
-                                             .replace("%c", avg.issues.iter().join(",").as_str()))
-                            }
-                            None => println!("{}. {:?} risk!", msg, avg.severity),
+            None => if !options.upgradable_only {
+                if options.quiet > 0 {
+                    println!("{}", pkg);
+                } else {
+                    match options.format {
+                        Some(ref f) => {
+                            println!("{}",
+                                        f.replace("%n", pkg.as_str())
+                                            .replace("%c", avg.issues.iter().join(",").as_str()))
+                        }
+                        None => {
+                            println!("{}: Package {} is affected by {}.",
+                                     avg.severity,
+                                     pkg,
+                                     avg.issues.join(", "));
                         }
                     }
                 }
