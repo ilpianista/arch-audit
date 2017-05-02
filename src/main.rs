@@ -369,10 +369,10 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                                          .replace("%c", avg.issues.iter().join(",").as_str()))
                         }
                         None => {
-                            print!("{}: Package {} is affected by {}.",
-                                   avg.severity,
+                            print!("Package {} is affected by {}. {}!",
                                    pkg,
-                                   avg.issues.join(", "));
+                                   avg.issues.join(", "),
+                                   avg.severity);
                             if avg.status == enums::Status::Testing {
                                 println!("Update to {} from testing repos!", v)
                             } else {
@@ -395,10 +395,10 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                                                       avg.issues.iter().join(",").as_str()))
                             }
                             None => {
-                                println!("{}: Package {} is affected by {}.",
-                                         avg.severity,
+                                println!("Package {} is affected by {}. {}!",
                                          pkg,
-                                         avg.issues.join(", "));
+                                         avg.issues.join(", "),
+                                         avg.severity);
                             }
                         }
                     }
