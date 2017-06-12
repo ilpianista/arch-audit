@@ -46,6 +46,10 @@ After the installation just execute `arch-audit`.
 
 Donations via either [PayPal](https://www.paypal.me/andreascarpino) or [Bitcoins](bitcoin://1Ph3hFEoQaD4PK6MhL3kBNNh9FZFBfisEH) are always welcomed, thank you!
 
+## False Positive
+
+**Please** before reporting false positive check https://security.archlinux.org first. `arch-audit` parses that page and then if that page reports a false positive, `arch-audit` will do too. Get in touch with the Arch Linux Security team via IRC at freenode#archlinux-security. Thanks!
+
 ## License
 
 MIT
