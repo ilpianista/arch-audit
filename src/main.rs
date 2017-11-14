@@ -385,16 +385,19 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                             )
                         }
                         None => {
-                            print!(
+                            let msg = format!(
                                 "Package {} is affected by {}. {}!",
                                 pkg,
                                 avg.issues.join(", "),
                                 avg.severity
                             );
+
                             if avg.status == enums::Status::Testing {
-                                println!("Update to {} from testing repos!", v)
+                                println!("{}. Update to {} from testing repos!", msg, v)
+                            } else if avg.status == enums::Status::Fixed {
+                                println!("{}. Update to {}!", msg, v)
                             } else {
-                                println!("Update to {}!", v)
+                                println!("{}", msg)
                             }
                         }
                     }
