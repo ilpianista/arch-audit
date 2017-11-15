@@ -6,17 +6,21 @@
 
 [pkg-audit](https://www.freebsd.org/cgi/man.cgi?query=pkg-audit&sektion=8)-like utility for [Arch Linux](https://archlinux.org).
 
-Uses data collected by the awesome [Arch CVE Monitoring Team](https://wiki.archlinux.org/index.php/Arch_CVE_Monitoring_Team).
+Uses data collected by the awesome [Arch Security Team](https://wiki.archlinux.org/index.php/Arch_Security_Team).
 
 ## Installation
 
-### From AUR
+### Latest release from official repositories
 
-The PKGBUILD is available [on AUR](https://aur.archlinux.org/packages/arch-audit).
+    pacman -S arch-audit
+
+### Development version from AUR
+
+The PKGBUILD is available [on AUR](https://aur.archlinux.org/packages/arch-audit-git).
 
 After the installation just execute `arch-audit`.
 
-### From sources
+### Development version from sources
 
     git clone https://github.com/ilpianista/arch-audit
     cd arch-audit
@@ -26,15 +30,15 @@ After the installation just execute `arch-audit`.
 ## Example output
 
     $ arch-audit
-    Package bzip2 is affected by ["CVE-2016-3189"]. Medium risk!
-    Package curl is affected by ["CVE-2016-9594", "CVE-2016-9586"]. Update to 7.52.1-1!
-    Package gst-plugins-bad is affected by ["CVE-2016-9447", "CVE-2016-9446", "CVE-2016-9445"]. High risk!
-    Package jasper is affected by ["CVE-2016-8886"]. Medium risk!
-    Package libimobiledevice is affected by ["CVE-2016-5104"]. Low risk!
-    Package libtiff is affected by ["CVE-2015-7554"]. Critical risk!
-    Package libusbmuxd is affected by ["CVE-2016-5104"]. Low risk!
-    Package openjpeg2 is affected by ["CVE-2016-9118", "CVE-2016-9117", "CVE-2016-9116", "CVE-2016-9115", "CVE-2016-9114", "CVE-2016-9113"]. High risk!
-    Package openssl is affected by ["CVE-2016-7055"]. Low risk!
+    Package bzip2 is affected by CVE-2016-3189. Medium risk!
+    Package curl is affected by CVE-2016-9594, CVE-2016-9586. Update to 7.52.1-1!
+    Package gst-plugins-bad is affected by CVE-2016-9447, CVE-2016-9446, CVE-2016-9445. High risk!
+    Package jasper is affected by CVE-2016-8886. Medium risk!
+    Package libimobiledevice is affected by CVE-2016-5104. Low risk!
+    Package libtiff is affected by CVE-2015-7554. Critical risk!
+    Package libusbmuxd is affected by CVE-2016-5104. Low risk!
+    Package openjpeg2 is affected by CVE-2016-9118, CVE-2016-9117, CVE-2016-9116, CVE-2016-9115, CVE-2016-9114, CVE-2016-9113. High risk!
+    Package openssl is affected by CVE-2016-7055. Low risk!
 
     $ arch-audit --upgradable --quiet
     curl>=7.52.1-1
@@ -44,7 +48,7 @@ After the installation just execute `arch-audit`.
 
 ## Donate
 
-Donations via either [PayPal](https://www.paypal.me/andreascarpino) or [Bitcoins](bitcoin://1Ph3hFEoQaD4PK6MhL3kBNNh9FZFBfisEH) are always welcomed, thank you!
+Donations via either [PayPal](https://www.paypal.me/andreascarpino) or Bitcoin (1Ph3hFEoQaD4PK6MhL3kBNNh9FZFBfisEH) are always welcomed, thank you!
 
 ## False Positive
 
