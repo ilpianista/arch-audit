@@ -1,7 +1,7 @@
 # arch-audit
 
 [![crats.io](https://img.shields.io/crates/v/arch-audit.svg)](https://crates.io/crates/arch-audit)
-[![Build Status](https://travis-ci.org/ilpianista/arch-audit.svg?branch=master)](https://travis-ci.org/ilpianista/arch-audit)
+[![Build Status](https://gitlab.com/ilpianista/arch-audit/badges/master/build.svg)](https://gitlab.com/ilpianista/arch-audit/pipelines)
 [![Flattr this git repo](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=ilpianista&url=https://github.com/ilpianista/arch-audit&title=arch-audit&language=&tags=archlinux&category=software)
 
 [pkg-audit](https://www.freebsd.org/cgi/man.cgi?query=pkg-audit&sektion=8)-like utility for [Arch Linux](https://archlinux.org).

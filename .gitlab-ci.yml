@@ -1,0 +1,8 @@
+image: archlinux/base:latest
+
+test:cargo:
+  script:
+  - pacman -Syu --noconfirm
+  - pacman -S gcc rust pkg-config --noconfirm
+  - rustc --version && cargo --version      # Print version info for debugging
+  - cargo test --verbose --jobs 1 --release # Don't paralize to make errors more readable
