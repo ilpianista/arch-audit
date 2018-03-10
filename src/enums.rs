@@ -36,13 +36,13 @@ impl fmt::Display for Severity {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd)]
 pub enum Status {
     Unknown,
-    Vulnerable,
-    Testing,
-    Fixed,
     NotAffected,
+    Vulnerable,
+    Fixed,
+    Testing,
 }
 
 impl FromStr for Status {

@@ -291,9 +291,8 @@ fn merge_avgs(
                 avg_severity = a.severity;
             }
 
-            // We only care about testing stuff
-            if a.status == enums::Status::Testing {
-                avg_status = a.status.clone();
+            if a.status > avg_status {
+                avg_status = a.status;
             }
         }
 
@@ -365,7 +364,7 @@ fn test_merge_avgs() {
 fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
     for (pkg, avg) in avgs {
         match avg.fixed {
-            Some(ref v) => {
+            Some(ref v) if avg.status != enums::Status::Vulnerable => {
                 if options.quiet >= 2 {
                     println!("{}", pkg);
                 } else if options.quiet == 1 {
@@ -403,7 +402,7 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                     }
                 }
             }
-            None => {
+            _ => {
                 if !options.upgradable_only {
                     if options.quiet > 0 {
                         println!("{}", pkg);
