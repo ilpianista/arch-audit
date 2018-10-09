@@ -39,7 +39,7 @@ impl Default for Options {
 }
 
 fn main() {
-    env_logger::init().expect("env_logger failed");
+    env_logger::init();
 
     let yaml = load_yaml!("cli.yml");
     let args = App::from_yaml(yaml).get_matches();
