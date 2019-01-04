@@ -13,8 +13,8 @@ use curl::easy::Easy;
 use itertools::Itertools;
 use serde_json::Value;
 use std::cmp::Ordering;
-use std::collections::BTreeMap;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
+use std::collections::BTreeMap;
 use std::default::Default;
 use std::process::exit;
 use std::str;
@@ -108,7 +108,8 @@ fn main() {
                     match cves.entry(p) {
                         Occupied(c) => c.into_mut(),
                         Vacant(c) => c.insert(vec![]),
-                    }.push(info.clone());
+                    }
+                    .push(info.clone());
                 }
             }
         }
@@ -121,7 +122,8 @@ fn main() {
                 match affected_avgs.entry(pkg.clone()) {
                     Occupied(c) => c.into_mut(),
                     Vacant(c) => c.insert(vec![]),
-                }.push(avg.clone());
+                }
+                .push(avg.clone());
             }
         }
     }
@@ -162,8 +164,9 @@ fn to_avg(data: &Value) -> avg::AVG {
 fn test_to_avg() {
     let json: Value = serde_json::from_str(
         "{\"issues\": [\"CVE-1\", \"CVE-2\"], \"fixed\": \"1.0\", \
-                               \"severity\": \"High\", \"status\": \"Not affected\"}",
-    ).expect("serde_json::from_str failed");
+         \"severity\": \"High\", \"status\": \"Not affected\"}",
+    )
+    .expect("serde_json::from_str failed");
 
     let avg1 = to_avg(&json);
     assert_eq!(2, avg1.issues.len());
@@ -173,8 +176,9 @@ fn test_to_avg() {
 
     let json: Value = serde_json::from_str(
         "{\"issues\": [\"CVE-1\"], \"fixed\": null, \
-                               \"severity\": \"Low\", \"status\": \"Vulnerable\"}",
-    ).expect("serde_json::from_str failed");
+         \"severity\": \"Low\", \"status\": \"Vulnerable\"}",
+    )
+    .expect("serde_json::from_str failed");
 
     let avg2 = to_avg(&json);
     assert_eq!(1, avg2.issues.len());
@@ -191,9 +195,9 @@ fn system_is_affected(pacman: &alpm::Alpm, pkg: &str, avg: &avg::AVG) -> bool {
             match avg.fixed {
                 Some(ref version) => {
                     info!("Comparing with fixed version {}", version);
-                    let cmp = pacman.vercmp(v.clone(), version.clone()).expect(
-                        "Alpm::vercmp failed",
-                    );
+                    let cmp = pacman
+                        .vercmp(v.clone(), version.clone())
+                        .expect("Alpm::vercmp failed");
                     if let Ordering::Less = cmp {
                         return true;
                     }
@@ -276,9 +280,9 @@ fn merge_avgs(
             match avg_fixed.clone() {
                 Some(ref version) => {
                     if let Some(ref v) = a.fixed {
-                        let cmp = pacman.vercmp(version.to_string(), v.to_string()).expect(
-                            "Alpm::vercmp failed",
-                        );
+                        let cmp = pacman
+                            .vercmp(version.to_string(), v.to_string())
+                            .expect("Alpm::vercmp failed");
                         if let Ordering::Greater = cmp {
                             avg_fixed = a.fixed.clone();
                         }
@@ -371,18 +375,11 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                     println!("{}>={}", pkg, v);
                 } else {
                     match options.format {
-                        Some(ref f) => {
-                            println!(
-                                "{}",
-                                f.replace("%n", pkg.as_str()).replace(
-                                    "%c",
-                                    avg.issues
-                                        .iter()
-                                        .join(",")
-                                        .as_str(),
-                                )
-                            )
-                        }
+                        Some(ref f) => println!(
+                            "{}",
+                            f.replace("%n", pkg.as_str())
+                                .replace("%c", avg.issues.iter().join(",").as_str(),)
+                        ),
                         None => {
                             let msg = format!(
                                 "Package {} is affected by {}. {}!",
@@ -408,18 +405,11 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                         println!("{}", pkg);
                     } else {
                         match options.format {
-                            Some(ref f) => {
-                                println!(
-                                    "{}",
-                                    f.replace("%n", pkg.as_str()).replace(
-                                        "%c",
-                                        avg.issues
-                                            .iter()
-                                            .join(",")
-                                            .as_str(),
-                                    )
-                                )
-                            }
+                            Some(ref f) => println!(
+                                "{}",
+                                f.replace("%n", pkg.as_str())
+                                    .replace("%c", avg.issues.iter().join(",").as_str(),)
+                            ),
                             None => {
                                 println!(
                                     "Package {} is affected by {}. {}!",
