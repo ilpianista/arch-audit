@@ -22,6 +22,8 @@ use std::str;
 mod avg;
 mod enums;
 
+const WEBSITE: &str = "https://security.archlinux.org";
+
 struct Options {
     format: Option<String>,
     quiet: u64,
@@ -58,10 +60,12 @@ fn main() {
     let mut avgs = String::new();
     {
         info!("Downloading AVGs...");
-        let avgs_url = "https://security.archlinux.org/issues/all.json";
+        let avgs_url = format!("{}/issues/all.json", WEBSITE);
 
         let mut easy = Easy::new();
-        easy.url(avgs_url).expect("curl::Easy::url failed");
+        easy.fail_on_error(true)
+            .expect("curl::Easy::fail_on_error failed");
+        easy.url(&avgs_url).expect("curl::Easy::url failed");
         let mut transfer = easy.transfer();
         transfer
             .write_function(|data| {
@@ -72,7 +76,10 @@ fn main() {
         match transfer.perform() {
             Ok(_) => {}
             Err(_) => {
-                println!("Cannot fetch data, please check your network connection!");
+                println!(
+                    "Cannot fetch data from {}, please check your network connection!",
+                    WEBSITE
+                );
                 exit(1)
             }
         };
