@@ -1,5 +1,5 @@
 name: arch-audit
-version: 0.1.10
+version: 0.1.11
 args:
     - dbpath:
         short: b

@@ -1,6 +1,6 @@
 [package]
 name = "arch-audit"
-version = "0.1.10"
+version = "0.1.11"
 authors = ["Andrea Scarpino <me@andreascarpino.it>"]
 description = "An utility like pkg-audit for Arch Linux based on Arch Security Team data"
 repository = "https://gitlab.com/ilpianista/arch-audit"
