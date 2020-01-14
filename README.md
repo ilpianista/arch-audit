@@ -1,7 +1,7 @@
 # arch-audit
 
 [![crats.io](https://img.shields.io/crates/v/arch-audit.svg)](https://crates.io/crates/arch-audit)
-[![Build Status](https://gitlab.com/ilpianista/arch-audit/badges/master/build.svg)](https://gitlab.com/ilpianista/arch-audit/pipelines)
+[![Build Status](https://gitlab.com/ilpianista/arch-audit/badges/master/pipeline.svg)](https://gitlab.com/ilpianista/arch-audit/pipelines)
 
 [pkg-audit](https://www.freebsd.org/cgi/man.cgi?query=pkg-audit&sektion=8)-like utility for [Arch Linux](https://archlinux.org).
 
