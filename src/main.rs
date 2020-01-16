@@ -23,6 +23,8 @@ mod avg;
 mod enums;
 
 const WEBSITE: &str = "https://security.archlinux.org";
+const ROOT_DIR: &str = "/";
+const DB_PATH: &str = "/var/lib/pacman/";
 
 struct Options {
     format: Option<String>,
@@ -86,11 +88,10 @@ fn main() {
     }
 
     let pacman = match args.value_of("dbpath") {
-        Some(path) => {
-            alpm::Alpm::with_dbpath(path.to_string()).expect("alpm::Alpm::with_dbpath failed")
-        }
-        None => alpm::Alpm::new().expect("alpm::Alpm::new failed"),
+        Some(path) => alpm::Alpm::new(ROOT_DIR, path).expect("alpm::Alpm::new with custom dbpath failed"),
+        None => alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("alpm::Alpm::new failed"),
     };
+    let db = pacman.localdb();
 
     let mut cves: BTreeMap<String, Vec<_>> = BTreeMap::new();
     {
@@ -104,7 +105,7 @@ fn main() {
                 .map(|s| s.as_str().expect("Value::as_str failed").to_string())
                 .collect::<Vec<_>>();
 
-            if !package_is_installed(&pacman, &packages) {
+            if !package_is_installed(&db, &packages) {
                 continue;
             }
 
@@ -125,7 +126,7 @@ fn main() {
     let mut affected_avgs: BTreeMap<String, Vec<_>> = BTreeMap::new();
     for (pkg, avgs) in cves {
         for avg in &avgs {
-            if system_is_affected(&pacman, &pkg, avg) {
+            if system_is_affected(&db, &pkg, avg) {
                 match affected_avgs.entry(pkg.clone()) {
                     Occupied(c) => c.into_mut(),
                     Vacant(c) => c.insert(vec![]),
@@ -135,7 +136,7 @@ fn main() {
         }
     }
 
-    let merged = merge_avgs(&pacman, &affected_avgs);
+    let merged = merge_avgs(&affected_avgs);
     print_avgs(&options, &merged);
 }
 
@@ -195,16 +196,18 @@ fn test_to_avg() {
 }
 
 /// Given a package and an `avg::AVG`, returns true if the system is affected
-fn system_is_affected(pacman: &alpm::Alpm, pkg: &str, avg: &avg::AVG) -> bool {
-    match pacman.query_package_version(pkg.clone()) {
+fn system_is_affected(db: &alpm::Db, pkg: &str, avg: &avg::AVG) -> bool {
+    match db.pkg(pkg.clone()) {
         Ok(v) => {
-            info!("Found installed version {} for package {}", v, pkg);
+            info!(
+                "Found installed version {} for package {}",
+                v.version(),
+                pkg
+            );
             match avg.fixed {
                 Some(ref version) => {
                     info!("Comparing with fixed version {}", version);
-                    let cmp = pacman
-                        .vercmp(v.clone(), version.clone())
-                        .expect("Alpm::vercmp failed");
+                    let cmp = alpm::vercmp(v.version().to_string(), version.clone());
                     if let Ordering::Less = cmp {
                         return true;
                     }
@@ -220,7 +223,8 @@ fn system_is_affected(pacman: &alpm::Alpm, pkg: &str, avg: &avg::AVG) -> bool {
 
 #[test]
 fn test_system_is_affected() {
-    let pacman = alpm::Alpm::new().expect("Alpm::new failed");
+    let pacman = alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("Alpm::new failed");
+    let db = pacman.localdb();
 
     let avg1 = avg::AVG {
         issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
@@ -229,10 +233,7 @@ fn test_system_is_affected() {
         status: enums::Status::Unknown,
     };
 
-    assert_eq!(
-        false,
-        system_is_affected(&pacman, &"pacman".to_string(), &avg1)
-    );
+    assert_eq!(false, system_is_affected(&db, &"pacman".to_string(), &avg1));
 
     let avg2 = avg::AVG {
         issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
@@ -241,13 +242,13 @@ fn test_system_is_affected() {
         status: enums::Status::Unknown,
     };
 
-    assert!(system_is_affected(&pacman, &"pacman".to_string(), &avg2));
+    assert!(system_is_affected(&db, &"pacman".to_string(), &avg2));
 }
 
 /// Given a list of package names, returns true when at least one is installed
-fn package_is_installed(pacman: &alpm::Alpm, packages: &[String]) -> bool {
+fn package_is_installed(db: &alpm::Db, packages: &[String]) -> bool {
     for pkg in packages {
-        match pacman.query_package_version(pkg.as_str()) {
+        match db.pkg(pkg.as_str()) {
             Ok(_) => {
                 info!("Package {} is installed", pkg);
                 return true;
@@ -260,20 +261,18 @@ fn package_is_installed(pacman: &alpm::Alpm, packages: &[String]) -> bool {
 
 #[test]
 fn test_package_is_installed() {
-    let pacman = alpm::Alpm::new().expect("Alpm::new failed");
+    let pacman = alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("Alpm::new failed");
+    let db = pacman.localdb();
 
     let packages = vec!["pacman".to_string(), "pac".to_string()];
-    assert!(package_is_installed(&pacman, &packages));
+    assert!(package_is_installed(&db, &packages));
 
     let packages = vec!["pac".to_string()];
-    assert_eq!(false, package_is_installed(&pacman, &packages));
+    assert_eq!(false, package_is_installed(&db, &packages));
 }
 
 /// Merge a list of `avg::AVG` into a single `avg::AVG` using major version as version
-fn merge_avgs(
-    pacman: &alpm::Alpm,
-    cves: &BTreeMap<String, Vec<avg::AVG>>,
-) -> BTreeMap<String, avg::AVG> {
+fn merge_avgs(cves: &BTreeMap<String, Vec<avg::AVG>>) -> BTreeMap<String, avg::AVG> {
     let mut avgs: BTreeMap<String, avg::AVG> = BTreeMap::new();
     for (pkg, list) in cves.iter() {
         let mut avg_issues = vec![];
@@ -287,9 +286,7 @@ fn merge_avgs(
             match avg_fixed.clone() {
                 Some(ref version) => {
                     if let Some(ref v) = a.fixed {
-                        let cmp = pacman
-                            .vercmp(version.to_string(), v.to_string())
-                            .expect("Alpm::vercmp failed");
+                        let cmp = alpm::vercmp(version.to_string(), v.to_string());
                         if let Ordering::Greater = cmp {
                             avg_fixed = a.fixed.clone();
                         }
@@ -343,8 +340,7 @@ fn test_merge_avgs() {
 
     avgs.insert("package2".to_string(), vec![avg1, avg2]);
 
-    let pacman = alpm::Alpm::new().expect("Alpm::new failed");
-    let merged = merge_avgs(&pacman, &avgs);
+    let merged = merge_avgs(&avgs);
 
     assert_eq!(2, merged.len());
     assert_eq!(
