@@ -7,6 +7,7 @@ extern crate itertools;
 #[macro_use]
 extern crate log;
 extern crate serde_json;
+extern crate term;
 
 use clap::App;
 use curl::easy::Easy;
@@ -88,7 +89,9 @@ fn main() {
     }
 
     let pacman = match args.value_of("dbpath") {
-        Some(path) => alpm::Alpm::new(ROOT_DIR, path).expect("alpm::Alpm::new with custom dbpath failed"),
+        Some(path) => {
+            alpm::Alpm::new(ROOT_DIR, path).expect("alpm::Alpm::new with custom dbpath failed")
+        }
         None => alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("alpm::Alpm::new failed"),
     };
     let db = pacman.localdb();
@@ -369,20 +372,27 @@ fn test_merge_avgs() {
 
 /// Print a list of `avg::AVG`
 fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
+    let mut t = term::stdout().expect("term::stdout failed");
+
     for (pkg, avg) in avgs {
+        t.fg(avg.severity.to_color()).expect("term::fg failed");
+
         match avg.fixed {
             Some(ref v) if avg.status != enums::Status::Vulnerable => {
                 if options.quiet >= 2 {
-                    println!("{}", pkg);
+                    writeln!(t, "{}", pkg).expect("term::writeln failed");
                 } else if options.quiet == 1 {
-                    println!("{}>={}", pkg, v);
+                    writeln!(t, "{}>={}", pkg, v).expect("term::writeln failed");
                 } else {
+                    t.fg(term::color::RED).expect("term::color::RED failed");
                     match options.format {
-                        Some(ref f) => println!(
+                        Some(ref f) => writeln!(
+                            t,
                             "{}",
                             f.replace("%n", pkg.as_str())
                                 .replace("%c", avg.issues.iter().join(",").as_str(),)
-                        ),
+                        )
+                        .expect("term::writeln failed"),
                         None => {
                             let msg = format!(
                                 "Package {} is affected by {}. {}!",
@@ -392,11 +402,13 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                             );
 
                             if avg.status == enums::Status::Testing {
-                                println!("{}. Update to {} from testing repos!", msg, v)
+                                writeln!(t, "{}. Update to {} from testing repos!", msg, v)
+                                    .expect("term::writeln failed")
                             } else if avg.status == enums::Status::Fixed {
-                                println!("{}. Update to {}!", msg, v)
+                                writeln!(t, "{}. Update to {}!", msg, v)
+                                    .expect("term::writeln failed")
                             } else {
-                                println!("{}", msg)
+                                writeln!(t, "{}", msg).expect("term::writeln failed")
                             }
                         }
                     }

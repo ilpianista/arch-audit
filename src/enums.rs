@@ -36,6 +36,18 @@ impl fmt::Display for Severity {
     }
 }
 
+impl Severity {
+    pub fn to_color(&self) -> term::color::Color {
+        match self {
+            Severity::Low => term::color::YELLOW,
+            Severity::Medium => term::color::BRIGHT_YELLOW,
+            Severity::High => term::color::RED,
+            Severity::Critical => term::color::BRIGHT_RED,
+            _ => term::color::WHITE,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd)]
 pub enum Status {
     Unknown,
