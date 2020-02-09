@@ -373,43 +373,50 @@ fn test_merge_avgs() {
 /// Print a list of `avg::AVG`
 fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
     let mut t = term::stdout().expect("term::stdout failed");
-
     for (pkg, avg) in avgs {
-        t.fg(avg.severity.to_color()).expect("term::fg failed");
-
         match avg.fixed {
             Some(ref v) if avg.status != enums::Status::Vulnerable => {
-                if options.quiet >= 2 {
-                    writeln!(t, "{}", pkg).expect("term::writeln failed");
-                } else if options.quiet == 1 {
-                    writeln!(t, "{}>={}", pkg, v).expect("term::writeln failed");
+                // Quiet option
+                if options.quiet != 0 {
+                    t.fg(avg.severity.to_color()).expect("term::fg failed");
+                    if options.quiet >= 2 {
+                        writeln!(t, "{}", pkg).expect("term::writeln failed");
+                    } else if options.quiet == 1 {
+                        writeln!(t, "{}>={}", pkg, v).expect("term::writeln failed");
+                    }
+                    t.reset().expect("term::stdout failed");
                 } else {
-                    t.fg(term::color::RED).expect("term::color::RED failed");
                     match options.format {
-                        Some(ref f) => writeln!(
-                            t,
-                            "{}",
-                            f.replace("%n", pkg.as_str())
-                                .replace("%c", avg.issues.iter().join(",").as_str(),)
-                        )
-                        .expect("term::writeln failed"),
+                        Some(ref f) => {
+                            t.fg(term::color::RED).expect("term::color::RED failed");
+                            writeln!(
+                                t,
+                                "{}",
+                                f.replace("%n", pkg.as_str())
+                                    .replace("%c", avg.issues.iter().join(",").as_str(),)
+                            )
+                            .expect("term::writeln failed");
+                            t.reset().expect("term::stdout failed");
+                        }
                         None => {
-                            let msg = format!(
-                                "Package {} is affected by {}. {}!",
-                                pkg,
-                                avg.issues.join(", "),
-                                avg.severity
-                            );
-
+                            print_avg_colored(&mut t, pkg, avg);
+                            // Colored update
                             if avg.status == enums::Status::Testing {
-                                writeln!(t, "{}. Update to {} from testing repos!", msg, v)
-                                    .expect("term::writeln failed")
+                                // Print: Update to {} for testing repos!"
+                                print!(" Update to");
+                                t.attr(term::Attr::Bold).expect("term::attr failed");
+                                t.fg(term::color::GREEN).expect("term::fg failed");
+                                write!(t, " {}", v).expect("term::writeln failed");
+                                println!(" from testing repos!");
                             } else if avg.status == enums::Status::Fixed {
-                                writeln!(t, "{}. Update to {}!", msg, v)
-                                    .expect("term::writeln failed")
-                            } else {
-                                writeln!(t, "{}", msg).expect("term::writeln failed")
+                                // Print: Update to {}!
+                                print!(" Update to");
+                                t.attr(term::Attr::Bold).expect("term::attr failed");
+                                t.fg(term::color::GREEN).expect("term::fg failed");
+                                writeln!(t, " {}!", v).expect("term::writeln failed");
                             }
+                            println!();
+                            t.reset().expect("term::stdout failed");
                         }
                     }
                 }
@@ -417,21 +424,25 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
             _ => {
                 if !options.upgradable_only {
                     if options.quiet > 0 {
-                        println!("{}", pkg);
+                        t.fg(avg.severity.to_color()).expect("term::fg failed");
+                        writeln!(t, "{}", pkg).expect("term::writeln failed");
+                        t.reset().expect("term::stdout failed");
                     } else {
                         match options.format {
-                            Some(ref f) => println!(
-                                "{}",
-                                f.replace("%n", pkg.as_str())
-                                    .replace("%c", avg.issues.iter().join(",").as_str(),)
-                            ),
+                            Some(ref f) => {
+                                t.fg(avg.severity.to_color()).expect("term::fg failed");
+                                writeln!(
+                                    t,
+                                    "{}",
+                                    f.replace("%n", pkg.as_str())
+                                        .replace("%c", avg.issues.iter().join(",").as_str(),)
+                                )
+                                .expect("term::writeln failed");
+                                t.reset().expect("term::stdout failed");
+                            }
                             None => {
-                                println!(
-                                    "Package {} is affected by {}. {}!",
-                                    pkg,
-                                    avg.issues.join(", "),
-                                    avg.severity
-                                );
+                                print_avg_colored(&mut t, pkg, avg);
+                                println!();
                             }
                         }
                     }
@@ -439,4 +450,20 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
             }
         }
     }
+}
+
+/// Prints "Package {pkg} is affected by {severity} {issues}." colored
+fn print_avg_colored(t: &mut Box<term::StdoutTerminal>, pkg: &String, avg: &avg::AVG) {
+    t.reset().expect("term::stdout failed");
+    // Bold package
+    print!("Package");
+    t.attr(term::Attr::Bold).expect("term::attr failed");
+    write!(t, " {}", pkg).expect("term::writeln failed");
+    // Normal "is affected by"
+    t.reset().expect("term::stdout failed");
+    print!(" is affected by");
+    // Colored severity and issues
+    t.fg(avg.severity.to_color()).expect("term::fg failed");
+    write!(t, " {} {}.", avg.severity, avg.issues.join(", ")).expect("term::write failed");
+    t.reset().expect("term::stdout failed");
 }
