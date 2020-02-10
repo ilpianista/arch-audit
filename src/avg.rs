@@ -2,7 +2,7 @@ use enums;
 
 #[derive(Clone, Debug)]
 pub struct AVG {
-    pub issues: Vec<String>,
+    pub issues: Vec<(String, enums::Severity)>,
     pub fixed: Option<String>,
     pub severity: enums::Severity,
     pub status: enums::Status,

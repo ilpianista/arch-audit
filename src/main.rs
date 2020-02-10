@@ -145,23 +145,29 @@ fn main() {
 
 /// Converts a JSON to an `avg::AVG`
 fn to_avg(data: &Value) -> avg::AVG {
+    let severity = data["severity"]
+        .as_str()
+        .expect("Value::as_str failed")
+        .to_string()
+        .parse::<enums::Severity>()
+        .expect("parse::<Severity> failed");
     avg::AVG {
         issues: data["issues"]
             .as_array()
             .expect("Value::as_array failed")
             .iter()
-            .map(|s| s.as_str().expect("Value::as_str failed").to_string())
+            .map(|s| {
+                (
+                    s.as_str().expect("Value::as_str failed").to_string(),
+                    severity,
+                )
+            })
             .collect(),
         fixed: match data["fixed"].as_str() {
             Some(s) => Some(s.to_string()),
             None => None,
         },
-        severity: data["severity"]
-            .as_str()
-            .expect("Value::as_str failed")
-            .to_string()
-            .parse::<enums::Severity>()
-            .expect("parse::<Severity> failed"),
+        severity: severity,
         status: data["status"]
             .as_str()
             .expect("Value::as_str failed")
@@ -230,7 +236,10 @@ fn test_system_is_affected() {
     let db = pacman.localdb();
 
     let avg1 = avg::AVG {
-        issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+        issues: vec![
+            ("CVE-1".to_string(), enums::Severity::Unknown),
+            ("CVE-2".to_string(), enums::Severity::Unknown),
+        ],
         fixed: Some("1.0.0".to_string()),
         severity: enums::Severity::Unknown,
         status: enums::Status::Unknown,
@@ -239,7 +248,10 @@ fn test_system_is_affected() {
     assert_eq!(false, system_is_affected(&db, &"pacman".to_string(), &avg1));
 
     let avg2 = avg::AVG {
-        issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+        issues: vec![
+            ("CVE-1".to_string(), enums::Severity::Unknown),
+            ("CVE-2".to_string(), enums::Severity::Unknown),
+        ],
         fixed: Some("7.0.0".to_string()),
         severity: enums::Severity::Unknown,
         status: enums::Status::Unknown,
@@ -324,14 +336,20 @@ fn test_merge_avgs() {
     let mut avgs: BTreeMap<String, Vec<_>> = BTreeMap::new();
 
     let avg1 = avg::AVG {
-        issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+        issues: vec![
+            ("CVE-1".to_string(), enums::Severity::Unknown),
+            ("CVE-2".to_string(), enums::Severity::Unknown),
+        ],
         fixed: Some("1.0.0".to_string()),
         severity: enums::Severity::Unknown,
         status: enums::Status::Fixed,
     };
 
     let avg2 = avg::AVG {
-        issues: vec!["CVE-4".to_string(), "CVE-10".to_string()],
+        issues: vec![
+            ("CVE-1".to_string(), enums::Severity::Unknown),
+            ("CVE-2".to_string(), enums::Severity::Unknown),
+        ],
         fixed: Some("0.9.8".to_string()),
         severity: enums::Severity::High,
         status: enums::Status::Testing,
@@ -392,8 +410,10 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                             writeln!(
                                 t,
                                 "{}",
-                                f.replace("%n", pkg.as_str())
-                                    .replace("%c", avg.issues.iter().join(",").as_str(),)
+                                f.replace("%n", pkg.as_str()).replace(
+                                    "%c",
+                                    avg.issues.iter().map(|issue| &issue.0).join(",").as_str(),
+                                )
                             )
                             .expect("term::writeln failed");
                             t.reset().expect("term::stdout failed");
@@ -434,8 +454,10 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                                 writeln!(
                                     t,
                                     "{}",
-                                    f.replace("%n", pkg.as_str())
-                                        .replace("%c", avg.issues.iter().join(",").as_str(),)
+                                    f.replace("%n", pkg.as_str()).replace(
+                                        "%c",
+                                        avg.issues.iter().map(|issue| &issue.0).join(",").as_str(),
+                                    )
                                 )
                                 .expect("term::writeln failed");
                                 t.reset().expect("term::stdout failed");
@@ -452,7 +474,7 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
     }
 }
 
-/// Prints "Package {pkg} is affected by {severity} {issues}." colored
+/// Prints "Package {pkg} is affected by {issues}. {severity}." colored
 fn print_avg_colored(t: &mut Box<term::StdoutTerminal>, pkg: &String, avg: &avg::AVG) {
     t.reset().expect("term::stdout failed");
     // Bold package
@@ -462,8 +484,17 @@ fn print_avg_colored(t: &mut Box<term::StdoutTerminal>, pkg: &String, avg: &avg:
     // Normal "is affected by"
     t.reset().expect("term::stdout failed");
     print!(" is affected by");
-    // Colored severity and issues
+    // Colored issues
+    if let Some((first, elements)) = avg.issues.split_first() {
+        t.fg(first.1.to_color()).expect("term::fg failed");
+        write!(t, " {}", first.0).expect("term::write failed");
+        for issue in elements {
+            t.fg(issue.1.to_color()).expect("term::fg failed");
+            write!(t, ", {}", issue.0).expect("term::write failed");
+        }
+    }
+    // Colored severity
     t.fg(avg.severity.to_color()).expect("term::fg failed");
-    write!(t, " {} {}.", avg.severity, avg.issues.join(", ")).expect("term::write failed");
+    write!(t, ". {}.", avg.severity).expect("term::write failed");
     t.reset().expect("term::stdout failed");
 }

@@ -27,11 +27,11 @@ impl FromStr for Severity {
 impl fmt::Display for Severity {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         f.write_str(match *self {
-            Severity::Low => "low risk",
-            Severity::Medium => "medium risk",
-            Severity::High => "high risk",
-            Severity::Critical => "critical risk",
-            Severity::Unknown => "unknown risk",
+            Severity::Low => "Low risk",
+            Severity::Medium => "Medium risk",
+            Severity::High => "High risk",
+            Severity::Critical => "Critical risk",
+            Severity::Unknown => "Unknown risk",
         })
     }
 }
