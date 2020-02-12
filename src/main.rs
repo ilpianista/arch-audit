@@ -501,6 +501,7 @@ fn print_avg_colored(t: &mut Box<term::StdoutTerminal>, pkg: &String, avg: &avg:
     t.reset().expect("term::stdout failed");
 }
 
+// run test cargo test -- --nocapture to see output
 #[test]
 fn test_print_avgs() {
     let mut avgs: BTreeMap<String, Vec<_>> = BTreeMap::new();
