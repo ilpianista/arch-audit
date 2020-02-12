@@ -427,6 +427,7 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                                 t.attr(term::Attr::Bold).expect("term::attr failed");
                                 t.fg(term::color::GREEN).expect("term::fg failed");
                                 write!(t, " {}", v).expect("term::writeln failed");
+                                t.reset().expect("term::stdout failed");
                                 println!(" from testing repos!");
                             } else if avg.status == enums::Status::Fixed {
                                 // Print: Update to {}!
@@ -434,9 +435,8 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                                 t.attr(term::Attr::Bold).expect("term::attr failed");
                                 t.fg(term::color::GREEN).expect("term::fg failed");
                                 writeln!(t, " {}!", v).expect("term::writeln failed");
+                                t.reset().expect("term::stdout failed");
                             }
-                            println!();
-                            t.reset().expect("term::stdout failed");
                         }
                     }
                 }
@@ -493,8 +493,51 @@ fn print_avg_colored(t: &mut Box<term::StdoutTerminal>, pkg: &String, avg: &avg:
             write!(t, ", {}", issue.0).expect("term::write failed");
         }
     }
+    t.reset().expect("term::stdout failed");
+    print!(".");
     // Colored severity
     t.fg(avg.severity.to_color()).expect("term::fg failed");
-    write!(t, ". {}.", avg.severity).expect("term::write failed");
+    write!(t, " {}.", avg.severity).expect("term::write failed");
     t.reset().expect("term::stdout failed");
 }
+
+#[test]
+fn test_print_avgs() {
+    let mut avgs: BTreeMap<String, Vec<_>> = BTreeMap::new();
+
+    let avg1 = avg::AVG {
+        issues: vec![
+            ("CVE-1".to_string(), enums::Severity::Unknown),
+            ("CVE-2".to_string(), enums::Severity::Low),
+            ("CVE-3".to_string(), enums::Severity::Medium),
+        ],
+        fixed: Some("1.0.0".to_string()),
+        severity: enums::Severity::Unknown,
+        status: enums::Status::Fixed,
+    };
+
+    let avg2 = avg::AVG {
+        issues: vec![
+            ("CVE-1".to_string(), enums::Severity::High),
+            ("CVE-2".to_string(), enums::Severity::Critical),
+        ],
+        fixed: Some("0.9.8".to_string()),
+        severity: enums::Severity::High,
+        status: enums::Status::Testing,
+    };
+
+    avgs.insert("package".to_string(), vec![avg1.clone(), avg2.clone()]);
+
+    avgs.insert("package2".to_string(), vec![avg1, avg2]);
+
+    let merged = merge_avgs(&avgs);
+
+    let options = Options {
+        format: None,
+        quiet: 0,
+        upgradable_only: false,
+    };
+
+    print_avgs(&options, &merged);
+}
+
