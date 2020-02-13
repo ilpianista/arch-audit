@@ -402,10 +402,10 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                             );
 
                             if avg.status == enums::Status::Testing {
-                                writeln!(t, "{}. Update to {} from testing repos!", msg, v)
+                                writeln!(t, "{} Update to {} from the testing repos!", msg, v)
                                     .expect("term::writeln failed")
                             } else if avg.status == enums::Status::Fixed {
-                                writeln!(t, "{}. Update to {}!", msg, v)
+                                writeln!(t, "{} Update to {}!", msg, v)
                                     .expect("term::writeln failed")
                             } else {
                                 writeln!(t, "{}", msg).expect("term::writeln failed")
