@@ -488,12 +488,14 @@ fn print_avg_colored(t: &mut Box<term::StdoutTerminal>, pkg: &String, avg: &avg:
     if let Some((first, elements)) = avg.issues.split_first() {
         t.fg(first.1.to_color()).expect("term::fg failed");
         write!(t, " {}", first.0).expect("term::write failed");
+        t.reset().expect("term::stdout failed");
         for issue in elements {
+            print!(",");
             t.fg(issue.1.to_color()).expect("term::fg failed");
-            write!(t, ", {}", issue.0).expect("term::write failed");
+            write!(t, " {}", issue.0).expect("term::write failed");
+            t.reset().expect("term::stdout failed");
         }
     }
-    t.reset().expect("term::stdout failed");
     print!(".");
     // Colored severity
     t.fg(avg.severity.to_color()).expect("term::fg failed");
@@ -519,8 +521,8 @@ fn test_print_avgs() {
 
     let avg2 = avg::AVG {
         issues: vec![
-            ("CVE-1".to_string(), enums::Severity::High),
-            ("CVE-2".to_string(), enums::Severity::Critical),
+            ("CVE-4".to_string(), enums::Severity::High),
+            ("CVE-5".to_string(), enums::Severity::Critical),
         ],
         fixed: Some("0.9.8".to_string()),
         severity: enums::Severity::High,
@@ -541,4 +543,3 @@ fn test_print_avgs() {
 
     print_avgs(&options, &merged);
 }
-
