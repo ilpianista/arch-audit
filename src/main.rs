@@ -347,8 +347,8 @@ fn test_merge_avgs() {
 
     let avg2 = avg::AVG {
         issues: vec![
-            ("CVE-1".to_string(), enums::Severity::Unknown),
-            ("CVE-2".to_string(), enums::Severity::Unknown),
+            ("CVE-4".to_string(), enums::Severity::Unknown),
+            ("CVE-10".to_string(), enums::Severity::Unknown),
         ],
         fixed: Some("0.9.8".to_string()),
         severity: enums::Severity::High,
