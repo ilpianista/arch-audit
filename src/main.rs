@@ -428,14 +428,15 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                                 t.fg(term::color::GREEN).expect("term::fg failed");
                                 write!(t, " {}", v).expect("term::writeln failed");
                                 t.reset().expect("term::stdout failed");
-                                println!(" from testing repos!");
+                                println!(" from the testing repos!");
                             } else if avg.status == enums::Status::Fixed {
                                 // Print: Update to {}!
                                 print!(" Update to");
                                 t.attr(term::Attr::Bold).expect("term::attr failed");
                                 t.fg(term::color::GREEN).expect("term::fg failed");
-                                writeln!(t, " {}!", v).expect("term::writeln failed");
+                                write!(t, " {}", v).expect("term::writeln failed");
                                 t.reset().expect("term::stdout failed");
+                                println!("!");
                             }
                         }
                     }
