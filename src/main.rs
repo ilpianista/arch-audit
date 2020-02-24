@@ -63,7 +63,7 @@ fn main() {
     let mut avgs = String::new();
     {
         info!("Downloading AVGs...");
-        let avgs_url = format!("{}/all.json", WEBSITE);
+        let avgs_url = format!("{}/issues/all.json", WEBSITE);
 
         let mut easy = Easy::new();
         easy.fail_on_error(true)
