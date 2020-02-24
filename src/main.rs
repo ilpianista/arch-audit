@@ -68,6 +68,7 @@ fn main() {
         let mut easy = Easy::new();
         easy.fail_on_error(true)
             .expect("curl::Easy::fail_on_error failed");
+        easy.follow_location(true).expect("curl::Easy::follow_location failed");
         easy.url(&avgs_url).expect("curl::Easy::url failed");
         let mut transfer = easy.transfer();
         transfer
