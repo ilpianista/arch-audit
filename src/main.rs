@@ -502,7 +502,7 @@ fn print_avg_formatted(
                 }
                 Some(x) => {
                     debug!("Unknown placeholder {}", x);
-                    chars.next();
+                    write!(t, "%").expect("term::write failed");
                 }
                 None => {}
             },
