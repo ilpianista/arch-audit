@@ -2,7 +2,7 @@
 name = "arch-audit"
 version = "0.1.13"
 authors = ["Andrea Scarpino <andrea@scarpino.dev>"]
-description = "An utility like pkg-audit for Arch Linux based on Arch Security Team data"
+description = "A utility like pkg-audit for Arch Linux based on Arch Security Team data"
 repository = "https://gitlab.com/ilpianista/arch-audit"
 license = "MIT"
 readme = "README.md"
@@ -13,6 +13,7 @@ name = "arch-audit"
 
 [dependencies]
 alpm = "^0.8"
+atty = "^0.2"
 clap = {version = "^2", features = ["yaml"]}
 curl = "^0.4"
 env_logger = "^0.7"

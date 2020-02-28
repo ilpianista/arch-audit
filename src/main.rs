@@ -1,4 +1,5 @@
 extern crate alpm;
+extern crate atty;
 #[macro_use]
 extern crate clap;
 extern crate curl;
@@ -9,6 +10,7 @@ extern crate log;
 extern crate serde_json;
 extern crate term;
 
+use atty::Stream;
 use clap::App;
 use curl::easy::Easy;
 use itertools::Itertools;
@@ -380,15 +382,11 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
             Some(ref v) if avg.status != enums::Status::Vulnerable => {
                 // Quiet option
                 if options.quiet >= 1 {
-                    t.fg(avg.severity.to_color()).expect("term::fg failed");
-                    write!(t, "{}", pkg).expect("term::write failed");
-                    t.reset().expect("term::stdout failed");
+                    write_with_colours(&mut t, pkg, Some(avg.severity.to_color()), None);
 
                     if options.quiet == 1 {
                         write!(t, ">=").expect("term::write failed");
-                        t.fg(term::color::GREEN).expect("term::fg failed");
-                        write!(t, "{}", v).expect("term::write failed");
-                        t.reset().expect("term::stdout failed");
+                        write_with_colours(&mut t, v, Some(term::color::GREEN), None);
                     }
                 } else {
                     match options.format {
@@ -406,9 +404,7 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
             _ => {
                 if !options.upgradable_only {
                     if options.quiet > 0 {
-                        t.fg(avg.severity.to_color()).expect("term::fg failed");
-                        writeln!(t, "{}", pkg).expect("term::writeln failed");
-                        t.reset().expect("term::stdout failed");
+                        write_with_colours(&mut t, pkg, Some(avg.severity.to_color()), None);
                     } else {
                         match options.format {
                             Some(ref f) => {
@@ -435,34 +431,25 @@ fn print_avg_colored(
     version: &String,
 ) {
     // Bold package
-    write!(t, "Package").expect("term::write failed");
-    t.attr(term::Attr::Bold).expect("term::attr failed");
-    write!(t, " {}", pkg).expect("term::writeln failed");
+    write!(t, "Package ").expect("term::write failed");
+    write_with_colours(t, pkg, None, Some(term::Attr::Bold));
     // Normal "is affected by {issues}"
-    t.reset().expect("term::stdout failed");
-    write!(t, " is affected by {}.", avg.issues.join(", ")).expect("term::write failed");
+    write!(t, " is affected by {}. ", avg.issues.join(", ")).expect("term::write failed");
     // Colored severit
-    t.fg(avg.severity.to_color()).expect("term::fg failed");
-    write!(t, " {}!", avg.severity).expect("term::write failed");
-    t.reset().expect("term::stdout failed");
+    write_with_colours(t, avg.severity.to_string().as_str(), Some(avg.severity.to_color()), None);
+    write!(t, "!").expect("term::write failed");
 
     if !version.is_empty() {
         if avg.status == enums::Status::Testing {
             // Print: Update to {} from the testing repos!"
-            write!(t, " Update to").expect("term::write failed");
-            t.attr(term::Attr::Bold).expect("term::attr failed");
-            t.fg(term::color::GREEN).expect("term::fg failed");
-            write!(t, " {}", version).expect("term::write failed");
-            t.reset().expect("term::stdout failed");
-            write!(t, " from the testing repos!").expect("term::writeln failed");
+            write!(t, " Update to ").expect("term::write failed");
+            write_with_colours(t, version, Some(term::color::GREEN), Some(term::Attr::Bold));
+            write!(t, " from the testing repos!").expect("term::write failed");
         } else if avg.status == enums::Status::Fixed {
             // Print: Update to {}!
-            write!(t, " Update to").expect("term::write failed");
-            t.attr(term::Attr::Bold).expect("term::attr failed");
-            t.fg(term::color::GREEN).expect("term::fg failed");
-            write!(t, " {}", version).expect("term::write failed");
-            t.reset().expect("term::stdout failed");
-            write!(t, "!").expect("term::writeln failed");
+            write!(t, " Update to ").expect("term::write failed");
+            write_with_colours(t, version, Some(term::color::GREEN), Some(term::Attr::Bold));
+            write!(t, "!").expect("term::write failed");
         }
     }
 }
@@ -481,9 +468,7 @@ fn print_avg_formatted(
         match chars.next() {
             Some('%') => match chars.peek() {
                 Some('n') => {
-                    t.fg(avg.severity.to_color()).expect("term::fg failed");
-                    write!(t, "{}", pkg.as_str()).expect("term::write failed");
-                    t.reset().expect("term::stdout failed");
+                    write_with_colours(t, pkg.as_str(), Some(avg.severity.to_color()), None);
                     chars.next();
                 }
                 Some('c') => {
@@ -493,10 +478,12 @@ fn print_avg_formatted(
                 }
                 Some('v') => {
                     if !version.is_empty() {
-                        t.attr(term::Attr::Bold).expect("term::attr failed");
-                        t.fg(term::color::GREEN).expect("term::fg failed");
-                        write!(t, " {}", version).expect("term::write failed");
-                        t.reset().expect("term::stdout failed");
+                        write_with_colours(
+                            t,
+                            version,
+                            Some(term::color::GREEN),
+                            Some(term::Attr::Bold),
+                        );
                     }
                     chars.next();
                 }
@@ -511,5 +498,34 @@ fn print_avg_formatted(
             }
             None => break,
         }
+    }
+}
+
+fn write_with_colours(
+    t: &mut Box<term::StdoutTerminal>,
+    text: &str,
+    color: Option<term::color::Color>,
+    attribute: Option<term::Attr>,
+) {
+    if atty::is(Stream::Stdout) {
+        match color {
+            Some(c) => {
+                t.fg(c).expect("term::fg failed");
+            }
+            None => {}
+        }
+
+        match attribute {
+            Some(a) => {
+                t.attr(a).expect("term::attr failed");
+            }
+            None => {}
+        }
+    }
+
+    write!(t, "{}", text).expect("term::write failed");
+
+    if atty::is(Stream::Stdout) {
+        t.reset().expect("term::stdout failed");
     }
 }
