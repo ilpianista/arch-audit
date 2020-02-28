@@ -68,7 +68,8 @@ fn main() {
         let mut easy = Easy::new();
         easy.fail_on_error(true)
             .expect("curl::Easy::fail_on_error failed");
-        easy.follow_location(true).expect("curl::Easy::follow_location failed");
+        easy.follow_location(true)
+            .expect("curl::Easy::follow_location failed");
         easy.url(&avgs_url).expect("curl::Easy::url failed");
         let mut transfer = easy.transfer();
         transfer
@@ -378,29 +379,25 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
         match avg.fixed {
             Some(ref v) if avg.status != enums::Status::Vulnerable => {
                 // Quiet option
-                if options.quiet >= 2 {
+                if options.quiet >= 1 {
                     t.fg(avg.severity.to_color()).expect("term::fg failed");
-                    writeln!(t, "{}", pkg).expect("term::writeln failed");
+                    write!(t, "{}", pkg).expect("term::write failed");
                     t.reset().expect("term::stdout failed");
-                } else if options.quiet == 1 {
-                    t.fg(avg.severity.to_color()).expect("term::fg failed");
-                    writeln!(t, "{}>={}", pkg, v).expect("term::writeln failed");
-                    t.reset().expect("term::stdout failed");
+
+                    if options.quiet == 1 {
+                        write!(t, ">=").expect("term::write failed");
+                        t.fg(term::color::GREEN).expect("term::fg failed");
+                        write!(t, "{}", v).expect("term::write failed");
+                        t.reset().expect("term::stdout failed");
+                    }
                 } else {
                     match options.format {
                         Some(ref f) => {
-                            t.fg(term::color::RED).expect("term::color::RED failed");
-                            writeln!(
-                                t,
-                                "{}",
-                                f.replace("%n", pkg.as_str())
-                                    .replace("%c", avg.issues.iter().join(",").as_str(),)
-                            )
-                            .expect("term::writeln failed");
-                            t.reset().expect("term::stdout failed");
+                            print_avg_formatted(&mut t, pkg, avg, f);
                         }
                         None => {
                             print_avg_colored(&mut t, pkg, avg);
+
                             // Colored update
                             if avg.status == enums::Status::Testing {
                                 // Print: Update to {} from the testing repos!"
@@ -409,7 +406,7 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                                 t.fg(term::color::GREEN).expect("term::fg failed");
                                 write!(t, " {}", v).expect("term::write failed");
                                 t.reset().expect("term::stdout failed");
-                                writeln!(t, " from the testing repos!")
+                                write!(t, " from the testing repos!")
                                     .expect("term::writeln failed");
                             } else if avg.status == enums::Status::Fixed {
                                 // Print: Update to {}!
@@ -418,11 +415,13 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                                 t.fg(term::color::GREEN).expect("term::fg failed");
                                 write!(t, " {}", v).expect("term::write failed");
                                 t.reset().expect("term::stdout failed");
-                                writeln!(t, "!").expect("term::writeln failed");
+                                write!(t, "!").expect("term::writeln failed");
                             }
                         }
                     }
                 }
+
+                writeln!(t).expect("term::writeln failed");
             }
             _ => {
                 if !options.upgradable_only {
@@ -433,21 +432,14 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                     } else {
                         match options.format {
                             Some(ref f) => {
-                                t.fg(avg.severity.to_color()).expect("term::fg failed");
-                                writeln!(
-                                    t,
-                                    "{}",
-                                    f.replace("%n", pkg.as_str())
-                                        .replace("%c", avg.issues.iter().join(",").as_str(),)
-                                )
-                                .expect("term::writeln failed");
-                                t.reset().expect("term::stdout failed");
+                                print_avg_formatted(&mut t, pkg, avg, f);
                             }
                             None => {
                                 print_avg_colored(&mut t, pkg, avg);
-                                writeln!(t).expect("term::writeln failed");
                             }
                         }
+
+                        writeln!(t).expect("term::writeln failed");
                     }
                 }
             }
@@ -468,4 +460,41 @@ fn print_avg_colored(t: &mut Box<term::StdoutTerminal>, pkg: &String, avg: &avg:
     t.fg(avg.severity.to_color()).expect("term::fg failed");
     write!(t, " {}!", avg.severity).expect("term::write failed");
     t.reset().expect("term::stdout failed");
+}
+
+/// Prints output formatted as the user wants
+fn print_avg_formatted(
+    t: &mut Box<term::StdoutTerminal>,
+    pkg: &String,
+    avg: &avg::AVG,
+    f: &String,
+) {
+    let mut chars = f.chars().peekable();
+
+    loop {
+        match chars.next() {
+            Some('%') => match chars.peek() {
+                Some('n') => {
+                    t.fg(avg.severity.to_color()).expect("term::fg failed");
+                    write!(t, "{}", pkg.as_str()).expect("term::write failed");
+                    t.reset().expect("term::stdout failed");
+                    chars.next();
+                }
+                Some('c') => {
+                    write!(t, "{}", avg.issues.iter().join(",").as_str())
+                        .expect("term::write failed");
+                    chars.next();
+                }
+                Some(x) => {
+                    debug!("Unknown placeholder {}", x);
+                    chars.next();
+                }
+                None => {}
+            },
+            Some(x) => {
+                write!(t, "{}", x).expect("term::write failed");
+            }
+            None => break,
+        }
+    }
 }
