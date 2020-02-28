@@ -11,5 +11,5 @@ _arguments -s -S \
 "(-u --upgradable)"{-u,--upgradable}"[Show only packages that have already been fixed]" \
 "(-V --version)"{-V,--version}"[Prints version information]" \
 "(-b --dbpath)"{-b,--dbpath}"[Set an alternate database location]:dbpath:_files -/" \
-"(-f --format)"{-f,--format}"[Specify a format to control the output. Placeholders are %n (pkgname) and %c (CVEs)]:format" \
+"(-f --format)"{-f,--format}"[Specify a format to control the output. Placeholders are %n (pkgname), %c (CVEs) and %v (fixed version)]:format" \
 && return 0
