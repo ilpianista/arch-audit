@@ -393,30 +393,10 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                 } else {
                     match options.format {
                         Some(ref f) => {
-                            print_avg_formatted(&mut t, pkg, avg, f);
+                            print_avg_formatted(&mut t, pkg, avg, v, f);
                         }
                         None => {
-                            print_avg_colored(&mut t, pkg, avg);
-
-                            // Colored update
-                            if avg.status == enums::Status::Testing {
-                                // Print: Update to {} from the testing repos!"
-                                write!(t, " Update to").expect("term::write failed");
-                                t.attr(term::Attr::Bold).expect("term::attr failed");
-                                t.fg(term::color::GREEN).expect("term::fg failed");
-                                write!(t, " {}", v).expect("term::write failed");
-                                t.reset().expect("term::stdout failed");
-                                write!(t, " from the testing repos!")
-                                    .expect("term::writeln failed");
-                            } else if avg.status == enums::Status::Fixed {
-                                // Print: Update to {}!
-                                write!(t, " Update to").expect("term::write failed");
-                                t.attr(term::Attr::Bold).expect("term::attr failed");
-                                t.fg(term::color::GREEN).expect("term::fg failed");
-                                write!(t, " {}", v).expect("term::write failed");
-                                t.reset().expect("term::stdout failed");
-                                write!(t, "!").expect("term::writeln failed");
-                            }
+                            print_avg_colored(&mut t, pkg, avg, v);
                         }
                     }
                 }
@@ -432,10 +412,10 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                     } else {
                         match options.format {
                             Some(ref f) => {
-                                print_avg_formatted(&mut t, pkg, avg, f);
+                                print_avg_formatted(&mut t, pkg, avg, &String::new(), f);
                             }
                             None => {
-                                print_avg_colored(&mut t, pkg, avg);
+                                print_avg_colored(&mut t, pkg, avg, &String::new());
                             }
                         }
 
@@ -448,7 +428,12 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
 }
 
 /// Prints "Package {pkg} is affected by {issues}. {severity}!" colored
-fn print_avg_colored(t: &mut Box<term::StdoutTerminal>, pkg: &String, avg: &avg::AVG) {
+fn print_avg_colored(
+    t: &mut Box<term::StdoutTerminal>,
+    pkg: &String,
+    avg: &avg::AVG,
+    version: &String,
+) {
     // Bold package
     write!(t, "Package").expect("term::write failed");
     t.attr(term::Attr::Bold).expect("term::attr failed");
@@ -460,6 +445,26 @@ fn print_avg_colored(t: &mut Box<term::StdoutTerminal>, pkg: &String, avg: &avg:
     t.fg(avg.severity.to_color()).expect("term::fg failed");
     write!(t, " {}!", avg.severity).expect("term::write failed");
     t.reset().expect("term::stdout failed");
+
+    if !version.is_empty() {
+        if avg.status == enums::Status::Testing {
+            // Print: Update to {} from the testing repos!"
+            write!(t, " Update to").expect("term::write failed");
+            t.attr(term::Attr::Bold).expect("term::attr failed");
+            t.fg(term::color::GREEN).expect("term::fg failed");
+            write!(t, " {}", version).expect("term::write failed");
+            t.reset().expect("term::stdout failed");
+            write!(t, " from the testing repos!").expect("term::writeln failed");
+        } else if avg.status == enums::Status::Fixed {
+            // Print: Update to {}!
+            write!(t, " Update to").expect("term::write failed");
+            t.attr(term::Attr::Bold).expect("term::attr failed");
+            t.fg(term::color::GREEN).expect("term::fg failed");
+            write!(t, " {}", version).expect("term::write failed");
+            t.reset().expect("term::stdout failed");
+            write!(t, "!").expect("term::writeln failed");
+        }
+    }
 }
 
 /// Prints output formatted as the user wants
@@ -467,6 +472,7 @@ fn print_avg_formatted(
     t: &mut Box<term::StdoutTerminal>,
     pkg: &String,
     avg: &avg::AVG,
+    version: &String,
     f: &String,
 ) {
     let mut chars = f.chars().peekable();
@@ -483,6 +489,15 @@ fn print_avg_formatted(
                 Some('c') => {
                     write!(t, "{}", avg.issues.iter().join(",").as_str())
                         .expect("term::write failed");
+                    chars.next();
+                }
+                Some('v') => {
+                    if !version.is_empty() {
+                        t.attr(term::Attr::Bold).expect("term::attr failed");
+                        t.fg(term::color::GREEN).expect("term::fg failed");
+                        write!(t, " {}", version).expect("term::write failed");
+                        t.reset().expect("term::stdout failed");
+                    }
                     chars.next();
                 }
                 Some(x) => {

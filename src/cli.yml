@@ -10,7 +10,7 @@ args:
         short: f
         long: format
         takes_value: true
-        help: Specify a format to control the output. Placeholders are %n (pkgname) and %c (CVEs)
+        help: Specify a format to control the output. Placeholders are %n (pkgname), %c (CVEs) and %v (fixed version)
     - quiet:
         short: q
         long: quiet

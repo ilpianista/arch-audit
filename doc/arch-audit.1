@@ -7,23 +7,23 @@ arch-audit [FLAGS] [OPTIONS]
 .SH "DESCRIPTION"
 An utility like pkg-audit based on Arch CVE Monitoring Team data.
 .SH "FLAGS"
-.PP 
-\fI-h, --help\fR 
+.PP
+\fI-h, --help\fR
 .RS 4
 Prints help information.
 .RE
-.PP 
-\fI-q, --quiet\fR 
+.PP
+\fI-q, --quiet\fR
 .RS 4
 Show only vulnerable package names and their versions.
 .RE
-.PP 
-\fI-u, --upgradable\fR 
+.PP
+\fI-u, --upgradable\fR
 .RS 4
 Show only packages that have already been fixed.
 .RE
-.PP 
-\fI-V, --version\fR 
+.PP
+\fI-V, --version\fR
 .RS 4
 Prints version information
 .RE
@@ -36,7 +36,7 @@ Set an alternate database location
 .PP
 \fI-f, --format\fR <format>
 .RS 4
-Specify a format to control the output. Placeholders are %n (pkgname)
-and %c (CVEs)
+Specify a format to control the output. Placeholders are %n (pkgname),
+%c (CVEs) and %v (fixed version)
 .SH "AUTHOR"
 Developer Andrea Scarpino <andrea@archlinux.org>
