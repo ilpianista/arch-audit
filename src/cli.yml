@@ -16,6 +16,10 @@ args:
         long: quiet
         multiple: true
         help: Show only vulnerable package names and their versions
+    - testing:
+        short: t
+        long: show-testing
+        help: Show packages which are in the [testing] repos. See https://wiki.archlinux.org/index.php/Official_repositories#Testing_repositories
     - upgradable:
         short: u
         long: upgradable

@@ -33,6 +33,7 @@ struct Options {
     format: Option<String>,
     quiet: u64,
     upgradable_only: bool,
+    show_testing: bool,
 }
 
 impl Default for Options {
@@ -41,6 +42,7 @@ impl Default for Options {
             format: None,
             quiet: 0,
             upgradable_only: false,
+            show_testing: false,
         }
     }
 }
@@ -60,6 +62,7 @@ fn main() {
         },
         quiet: args.occurrences_of("quiet"),
         upgradable_only: args.is_present("upgradable"),
+        show_testing: args.is_present("testing"),
     };
 
     let mut avgs = String::new();
@@ -391,10 +394,10 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                 } else {
                     match options.format {
                         Some(ref f) => {
-                            print_avg_formatted(&mut t, pkg, avg, v, f);
+                            print_avg_formatted(&mut t, pkg, avg, v, options.show_testing, f);
                         }
                         None => {
-                            print_avg_colored(&mut t, pkg, avg, v);
+                            print_avg_colored(&mut t, pkg, avg, v, options.show_testing);
                         }
                     }
                 }
@@ -408,10 +411,23 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                     } else {
                         match options.format {
                             Some(ref f) => {
-                                print_avg_formatted(&mut t, pkg, avg, &String::new(), f);
+                                print_avg_formatted(
+                                    &mut t,
+                                    pkg,
+                                    avg,
+                                    &String::new(),
+                                    options.show_testing,
+                                    f,
+                                );
                             }
                             None => {
-                                print_avg_colored(&mut t, pkg, avg, &String::new());
+                                print_avg_colored(
+                                    &mut t,
+                                    pkg,
+                                    avg,
+                                    &String::new(),
+                                    options.show_testing,
+                                );
                             }
                         }
 
@@ -429,6 +445,7 @@ fn print_avg_colored(
     pkg: &String,
     avg: &avg::AVG,
     version: &String,
+    show_testing: bool,
 ) {
     // Bold package
     write!(t, "Package ").expect("term::write failed");
@@ -436,20 +453,25 @@ fn print_avg_colored(
     // Normal "is affected by {issues}"
     write!(t, " is affected by {}. ", avg.issues.join(", ")).expect("term::write failed");
     // Colored severit
-    write_with_colours(t, avg.severity.to_string().as_str(), Some(avg.severity.to_color()), None);
+    write_with_colours(
+        t,
+        avg.severity.to_string().as_str(),
+        Some(avg.severity.to_color()),
+        None,
+    );
     write!(t, "!").expect("term::write failed");
 
     if !version.is_empty() {
-        if avg.status == enums::Status::Testing {
-            // Print: Update to {} from the testing repos!"
-            write!(t, " Update to ").expect("term::write failed");
-            write_with_colours(t, version, Some(term::color::GREEN), Some(term::Attr::Bold));
-            write!(t, " from the testing repos!").expect("term::write failed");
-        } else if avg.status == enums::Status::Fixed {
+        if avg.status == enums::Status::Fixed {
             // Print: Update to {}!
             write!(t, " Update to ").expect("term::write failed");
             write_with_colours(t, version, Some(term::color::GREEN), Some(term::Attr::Bold));
             write!(t, "!").expect("term::write failed");
+        } else if avg.status == enums::Status::Testing && show_testing {
+            // Print: Update to {} from the testing repos!"
+            write!(t, " Update to ").expect("term::write failed");
+            write_with_colours(t, version, Some(term::color::GREEN), Some(term::Attr::Bold));
+            write!(t, " from the testing repos!").expect("term::write failed");
         }
     }
 }
@@ -460,6 +482,7 @@ fn print_avg_formatted(
     pkg: &String,
     avg: &avg::AVG,
     version: &String,
+    show_testing: bool,
     f: &String,
 ) {
     let mut chars = f.chars().peekable();
@@ -478,12 +501,16 @@ fn print_avg_formatted(
                 }
                 Some('v') => {
                     if !version.is_empty() {
-                        write_with_colours(
-                            t,
-                            version,
-                            Some(term::color::GREEN),
-                            Some(term::Attr::Bold),
-                        );
+                        if avg.status == enums::Status::Fixed
+                            || (avg.status == enums::Status::Testing && show_testing)
+                        {
+                            write_with_colours(
+                                t,
+                                version,
+                                Some(term::color::GREEN),
+                                Some(term::Attr::Bold),
+                            );
+                        }
                     }
                     chars.next();
                 }
