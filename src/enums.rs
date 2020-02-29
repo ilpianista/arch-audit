@@ -37,7 +37,7 @@ impl fmt::Display for Severity {
 }
 
 impl Severity {
-    pub fn to_color(&self) -> term::color::Color {
+    pub fn to_color(self) -> term::color::Color {
         match self {
             Severity::Low => term::color::YELLOW,
             Severity::Medium => term::color::BRIGHT_YELLOW,
