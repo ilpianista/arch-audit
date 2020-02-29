@@ -1,20 +1,9 @@
-extern crate alpm;
-extern crate atty;
-#[macro_use]
-extern crate clap;
-extern crate curl;
-extern crate env_logger;
-extern crate itertools;
-#[macro_use]
-extern crate log;
-extern crate serde_json;
-extern crate term;
-
+use crate::enums::Status;
 use atty::Stream;
-use clap::App;
+use clap::{load_yaml, App};
 use curl::easy::Easy;
-use enums::Status;
 use itertools::Itertools;
+use log::{debug, info};
 use serde_json::Value;
 use std::cmp::Ordering;
 use std::collections::btree_map::Entry::{Occupied, Vacant};

@@ -1,11 +1,11 @@
-use enums;
+use crate::enums::{Severity, Status};
 
 #[derive(Clone, Debug)]
 pub struct AVG {
     pub issues: Vec<String>,
     pub fixed: Option<String>,
-    pub severity: enums::Severity,
-    pub status: enums::Status,
+    pub severity: Severity,
+    pub status: Status,
 }
 
 impl Default for AVG {
@@ -13,8 +13,8 @@ impl Default for AVG {
         AVG {
             issues: vec![],
             fixed: None,
-            severity: enums::Severity::Unknown,
-            status: enums::Status::Unknown,
+            severity: Severity::Unknown,
+            status: Status::Unknown,
         }
     }
 }
