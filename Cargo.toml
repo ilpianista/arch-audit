@@ -12,7 +12,7 @@ keywords = ["archlinux", "security"]
 name = "arch-audit"
 
 [dependencies]
-alpm = "^0.8"
+alpm = "^0.9"
 atty = "^0.2"
 clap = {version = "^2", features = ["yaml"]}
 curl = "^0.4"
