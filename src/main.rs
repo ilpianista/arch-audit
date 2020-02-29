@@ -1,19 +1,9 @@
-extern crate alpm;
-extern crate atty;
-#[macro_use]
-extern crate clap;
-extern crate curl;
-extern crate env_logger;
-extern crate itertools;
-#[macro_use]
-extern crate log;
-extern crate serde_json;
-extern crate term;
-
+use crate::enums::Status;
 use atty::Stream;
-use clap::App;
+use clap::{load_yaml, App};
 use curl::easy::Easy;
 use itertools::Itertools;
+use log::{debug, info};
 use serde_json::Value;
 use std::cmp::Ordering;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
@@ -29,22 +19,12 @@ const WEBSITE: &str = "https://security.archlinux.org";
 const ROOT_DIR: &str = "/";
 const DB_PATH: &str = "/var/lib/pacman/";
 
+#[derive(Default)]
 struct Options {
     format: Option<String>,
     quiet: u64,
     upgradable_only: bool,
     show_testing: bool,
-}
-
-impl Default for Options {
-    fn default() -> Options {
-        Options {
-            format: None,
-            quiet: 0,
-            upgradable_only: false,
-            show_testing: false,
-        }
-    }
 }
 
 fn main() {
@@ -207,7 +187,7 @@ fn test_to_avg() {
 
 /// Given a package and an `avg::AVG`, returns true if the system is affected
 fn system_is_affected(db: &alpm::Db, pkg: &str, avg: &avg::AVG) -> bool {
-    match db.pkg(pkg.clone()) {
+    match db.pkg(pkg) {
         Ok(v) => {
             info!(
                 "Found installed version {} for package {}",
@@ -385,19 +365,19 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
             Some(ref v) if avg.status != enums::Status::Vulnerable => {
                 // Quiet option
                 if options.quiet >= 1 {
-                    write_with_colours(&mut t, pkg, Some(avg.severity.to_color()), None);
+                    write_with_colours(&mut *t, pkg, Some(avg.severity.to_color()), None);
 
                     if options.quiet == 1 {
                         write!(t, ">=").expect("term::write failed");
-                        write_with_colours(&mut t, v, Some(term::color::GREEN), None);
+                        write_with_colours(&mut *t, v, Some(term::color::GREEN), None);
                     }
                 } else {
                     match options.format {
                         Some(ref f) => {
-                            print_avg_formatted(&mut t, pkg, avg, v, options.show_testing, f);
+                            print_avg_formatted(&mut *t, pkg, avg, v, options.show_testing, f);
                         }
                         None => {
-                            print_avg_colored(&mut t, pkg, avg, v, options.show_testing);
+                            print_avg_colored(&mut *t, pkg, avg, v, options.show_testing);
                         }
                     }
                 }
@@ -407,27 +387,14 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
             _ => {
                 if !options.upgradable_only {
                     if options.quiet > 0 {
-                        write_with_colours(&mut t, pkg, Some(avg.severity.to_color()), None);
+                        write_with_colours(&mut *t, pkg, Some(avg.severity.to_color()), None);
                     } else {
                         match options.format {
                             Some(ref f) => {
-                                print_avg_formatted(
-                                    &mut t,
-                                    pkg,
-                                    avg,
-                                    &String::new(),
-                                    options.show_testing,
-                                    f,
-                                );
+                                print_avg_formatted(&mut *t, pkg, avg, "", options.show_testing, f);
                             }
                             None => {
-                                print_avg_colored(
-                                    &mut t,
-                                    pkg,
-                                    avg,
-                                    &String::new(),
-                                    options.show_testing,
-                                );
+                                print_avg_colored(&mut *t, pkg, avg, "", options.show_testing);
                             }
                         }
 
@@ -441,10 +408,10 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
 
 /// Prints "Package {pkg} is affected by {issues}. {severity}!" colored
 fn print_avg_colored(
-    t: &mut Box<term::StdoutTerminal>,
-    pkg: &String,
+    t: &mut term::StdoutTerminal,
+    pkg: &str,
     avg: &avg::AVG,
-    version: &String,
+    version: &str,
     show_testing: bool,
 ) {
     // Bold package
@@ -478,12 +445,12 @@ fn print_avg_colored(
 
 /// Prints output formatted as the user wants
 fn print_avg_formatted(
-    t: &mut Box<term::StdoutTerminal>,
-    pkg: &String,
+    t: &mut term::StdoutTerminal,
+    pkg: &str,
     avg: &avg::AVG,
-    version: &String,
+    version: &str,
     show_testing: bool,
-    f: &String,
+    f: &str,
 ) {
     let mut chars = f.chars().peekable();
 
@@ -491,7 +458,7 @@ fn print_avg_formatted(
         match chars.next() {
             Some('%') => match chars.peek() {
                 Some('n') => {
-                    write_with_colours(t, pkg.as_str(), Some(avg.severity.to_color()), None);
+                    write_with_colours(t, pkg, Some(avg.severity.to_color()), None);
                     chars.next();
                 }
                 Some('c') => {
@@ -500,17 +467,16 @@ fn print_avg_formatted(
                     chars.next();
                 }
                 Some('v') => {
-                    if !version.is_empty() {
-                        if avg.status == enums::Status::Fixed
-                            || (avg.status == enums::Status::Testing && show_testing)
-                        {
-                            write_with_colours(
-                                t,
-                                version,
-                                Some(term::color::GREEN),
-                                Some(term::Attr::Bold),
-                            );
-                        }
+                    if !version.is_empty()
+                        && (avg.status == Status::Fixed
+                            || (avg.status == Status::Testing && show_testing))
+                    {
+                        write_with_colours(
+                            t,
+                            version,
+                            Some(term::color::GREEN),
+                            Some(term::Attr::Bold),
+                        );
                     }
                     chars.next();
                 }
@@ -529,24 +495,18 @@ fn print_avg_formatted(
 }
 
 fn write_with_colours(
-    t: &mut Box<term::StdoutTerminal>,
+    t: &mut term::StdoutTerminal,
     text: &str,
     color: Option<term::color::Color>,
     attribute: Option<term::Attr>,
 ) {
     if atty::is(Stream::Stdout) {
-        match color {
-            Some(c) => {
-                t.fg(c).expect("term::fg failed");
-            }
-            None => {}
+        if let Some(c) = color {
+            t.fg(c).expect("term::fg failed");
         }
 
-        match attribute {
-            Some(a) => {
-                t.attr(a).expect("term::attr failed");
-            }
-            None => {}
+        if let Some(a) = attribute {
+            t.attr(a).expect("term::attr failed");
         }
     }
 
