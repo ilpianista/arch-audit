@@ -30,22 +30,12 @@ const WEBSITE: &str = "https://security.archlinux.org";
 const ROOT_DIR: &str = "/";
 const DB_PATH: &str = "/var/lib/pacman/";
 
+#[derive(Default)]
 struct Options {
     format: Option<String>,
     quiet: u64,
     upgradable_only: bool,
     show_testing: bool,
-}
-
-impl Default for Options {
-    fn default() -> Options {
-        Options {
-            format: None,
-            quiet: 0,
-            upgradable_only: false,
-            show_testing: false,
-        }
-    }
 }
 
 fn main() {
