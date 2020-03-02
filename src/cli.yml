@@ -5,7 +5,7 @@ args:
         short: b
         long: dbpath
         takes_value: true
-        help: Set an alternate database location. Defaults to '/var/lib/pacman/'.
+        help: Set an alternate database location. Defaults to '/var/lib/pacman/'
     - color:
         short: C
         long: color
@@ -25,7 +25,7 @@ args:
         short: q
         long: quiet
         multiple: true
-        help: Show only vulnerable package names and their versions
+        help: Show only vulnerable package names and their versions. Set twice to hide more.
     - testing:
         short: t
         long: show-testing

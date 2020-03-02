@@ -16,7 +16,8 @@ Prints help information.
 .PP
 \fI-q, --quiet\fR
 .RS 4
-Show only vulnerable package names and their versions.
+Show only vulnerable package names and their versions. Set twice to hide the
+version also.
 .RE
 .PP
 \fI-t, --show-testing\fR
@@ -38,7 +39,8 @@ Prints version information.
 .PP
 \fI-b, --dbpath\fR <dbpath>
 .RS 4
-Set an alternate database location.
+Set an alternate database location. Defaults to
+.B /var/lib/pacman
 .RE
 .PP
 \fI-C, --color\fR <when>
