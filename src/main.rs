@@ -531,7 +531,8 @@ fn write_with_colours(
     color: Option<term::color::Color>,
     attribute: Option<term::Attr>,
 ) {
-    let show_colors = (options.color != enums::Color::Never) && atty::is(Stream::Stdout);
+    let show_colors = options.color == enums::Color::Always
+        || (atty::is(Stream::Stdout) && options.color != enums::Color::Never);
 
     if show_colors {
         if let Some(c) = color {
