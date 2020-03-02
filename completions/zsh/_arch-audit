@@ -13,5 +13,5 @@ _arguments -s -S \
 "(-V --version)"{-V,--version}"[Prints version information]" \
 "(-b --dbpath)"{-b,--dbpath}"[Set an alternate database location]:dbpath:_files -/" \
 "(-C --color)"{-C,--color}"[Colorize the output]:color:(never always auto)" \
-"(-f --format)"{-f,--format}"[Specify a format to control the output. Placeholders are %n (pkgname), %c (CVEs) and %v (fixed version)]:format" \
+"(-f --format)"{-f,--format}"[Specify a format to control the output. Placeholders are %n (pkgname), %c (CVEs), %v (fixed version) and %r (required by)]:format" \
 && return 0

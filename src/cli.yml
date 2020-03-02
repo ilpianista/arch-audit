@@ -20,12 +20,17 @@ args:
         short: f
         long: format
         takes_value: true
-        help: Specify a format to control the output. Placeholders are %n (pkgname), %c (CVEs) and %v (fixed version)
+        help: Specify a format to control the output. Placeholders are %n (pkgname), %c (CVEs), %v (fixed version) and %r (required by, only when -r is also used).
     - quiet:
         short: q
         long: quiet
         multiple: true
         help: Show only vulnerable package names and their versions. Set twice to hide more.
+    - recursive:
+        short: r
+        long: recursive
+        multiple: true
+        help: Prints packages that depend on vulnerable packages and are thus potentially vulnerable as well. Set twice to show the packages that require them as well. Set three times to show ALL the packages that requires them.
     - testing:
         short: t
         long: show-testing

@@ -24,6 +24,7 @@ struct Options {
     color: enums::Color,
     format: Option<String>,
     quiet: u64,
+    recursive: u64,
     upgradable_only: bool,
     show_testing: bool,
 }
@@ -51,6 +52,7 @@ fn main() {
             }
         },
         quiet: args.occurrences_of("quiet"),
+        recursive: args.occurrences_of("recursive"),
         upgradable_only: args.is_present("upgradable"),
         show_testing: args.is_present("testing"),
     };
@@ -136,8 +138,25 @@ fn main() {
         }
     }
 
-    let merged = merge_avgs(&affected_avgs);
+    let merged = merge_avgs(&affected_avgs, &db, &options);
     print_avgs(&options, &merged);
+}
+
+fn get_required_by(db: &alpm::Db, packages: &[String]) -> Vec<String> {
+    let mut required_by = vec![];
+
+    for pkg in packages {
+        required_by.append(
+            &mut db
+                .pkg(pkg)
+                .unwrap()
+                .required_by()
+                .map(|r| r)
+                .collect::<Vec<_>>(),
+        );
+    }
+
+    required_by
 }
 
 /// Converts a JSON to an `avg::AVG`
@@ -165,6 +184,7 @@ fn to_avg(data: &Value) -> avg::AVG {
             .to_string()
             .parse::<enums::Status>()
             .expect("parse::<Status> failed"),
+        required_by: vec![],
     }
 }
 
@@ -231,6 +251,7 @@ fn test_system_is_affected() {
         fixed: Some("1.0.0".to_string()),
         severity: enums::Severity::Unknown,
         status: enums::Status::Unknown,
+        required_by: vec![],
     };
 
     assert_eq!(false, system_is_affected(&db, &"pacman".to_string(), &avg1));
@@ -240,6 +261,7 @@ fn test_system_is_affected() {
         fixed: Some("7.0.0".to_string()),
         severity: enums::Severity::Unknown,
         status: enums::Status::Unknown,
+        required_by: vec![],
     };
 
     assert!(system_is_affected(&db, &"pacman".to_string(), &avg2));
@@ -272,7 +294,11 @@ fn test_package_is_installed() {
 }
 
 /// Merge a list of `avg::AVG` into a single `avg::AVG` using major version as version
-fn merge_avgs(cves: &BTreeMap<String, Vec<avg::AVG>>) -> BTreeMap<String, avg::AVG> {
+fn merge_avgs(
+    cves: &BTreeMap<String, Vec<avg::AVG>>,
+    db: &alpm::Db,
+    options: &Options,
+) -> BTreeMap<String, avg::AVG> {
     let mut avgs: BTreeMap<String, avg::AVG> = BTreeMap::new();
     for (pkg, list) in cves.iter() {
         let mut avg_issues = vec![];
@@ -304,12 +330,28 @@ fn merge_avgs(cves: &BTreeMap<String, Vec<avg::AVG>>) -> BTreeMap<String, avg::A
             }
         }
 
-        let avg = avg::AVG {
+        let mut avg = avg::AVG {
             issues: avg_issues,
             fixed: avg_fixed,
             severity: avg_severity,
             status: avg_status,
+            required_by: vec![],
         };
+
+        if options.recursive >= 1 {
+            let mut packages = get_required_by(&db, &[pkg.clone()]);
+            avg.required_by.append(&mut packages.clone());
+
+            loop {
+                if !packages.is_empty() && options.recursive > 1 {
+                    packages = get_required_by(&db, &packages);
+                    avg.required_by.append(&mut packages.clone());
+                } else {
+                    break;
+                }
+            }
+        }
+
         avgs.insert(pkg.to_string(), avg);
     }
 
@@ -325,6 +367,7 @@ fn test_merge_avgs() {
         fixed: Some("1.0.0".to_string()),
         severity: enums::Severity::Unknown,
         status: enums::Status::Fixed,
+        required_by: vec![],
     };
 
     let avg2 = avg::AVG {
@@ -332,6 +375,7 @@ fn test_merge_avgs() {
         fixed: Some("0.9.8".to_string()),
         severity: enums::Severity::High,
         status: enums::Status::Testing,
+        required_by: vec![],
     };
 
     assert!(enums::Severity::Critical > enums::Severity::High);
@@ -340,7 +384,10 @@ fn test_merge_avgs() {
 
     avgs.insert("package2".to_string(), vec![avg1, avg2]);
 
-    let merged = merge_avgs(&avgs);
+    let pacman = alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("Alpm::new failed");
+    let db = pacman.localdb();
+
+    let merged = merge_avgs(&avgs, &db, &Options::default());
 
     assert_eq!(2, merged.len());
     assert_eq!(
@@ -435,6 +482,11 @@ fn print_avg_colored(
     write_with_colours(t, pkg, options, None, Some(term::Attr::Bold));
     // Normal "is affected by {issues}"
     write!(t, " is affected by {}. ", avg.issues.join(", ")).expect("term::write failed");
+
+    if !avg.required_by.is_empty() {
+        write!(t, "It's required by {}. ", avg.required_by.join(", ")).expect("term::write failed");
+    }
+
     // Colored severit
     write_with_colours(
         t,
@@ -492,6 +544,11 @@ fn print_avg_formatted(
                 }
                 Some('c') => {
                     write!(t, "{}", avg.issues.iter().join(",").as_str())
+                        .expect("term::write failed");
+                    chars.next();
+                }
+                Some('r') => {
+                    write!(t, "{}", avg.required_by.iter().join(",").as_str())
                         .expect("term::write failed");
                     chars.next();
                 }
