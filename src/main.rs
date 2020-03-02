@@ -397,9 +397,9 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
                                 print_avg_colored(&mut *t, pkg, avg, "", options.show_testing);
                             }
                         }
-
-                        writeln!(t).expect("term::writeln failed");
                     }
+
+                    writeln!(t).expect("term::writeln failed");
                 }
             }
         }
