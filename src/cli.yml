@@ -5,7 +5,7 @@ args:
         short: b
         long: dbpath
         takes_value: true
-        help: Set an alternate database location
+        help: Set an alternate database location. Defaults to '/var/lib/pacman/'.
     - color:
         short: C
         long: color
@@ -15,7 +15,7 @@ args:
           - always
           - auto
           - never
-        help: Colorize the output
+        help: Colorize the output. Defaults to 'auto'
     - format:
         short: f
         long: format
