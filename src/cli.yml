@@ -6,6 +6,16 @@ args:
         long: dbpath
         takes_value: true
         help: Set an alternate database location
+    - color:
+        short: C
+        long: color
+        takes_value: true
+        case_insensitive: true
+        possible_values:
+          - always
+          - auto
+          - never
+        help: Colorize the output
     - format:
         short: f
         long: format

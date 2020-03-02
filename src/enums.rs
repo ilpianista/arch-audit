@@ -70,3 +70,28 @@ impl FromStr for Status {
         }
     }
 }
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd)]
+pub enum Color {
+    Always,
+    Auto,
+    Never,
+}
+
+impl FromStr for Color {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Color, ()> {
+        match s.to_lowercase().as_str() {
+            "always" => Ok(Color::Always),
+            "never" => Ok(Color::Never),
+            _ => Ok(Color::Auto),
+        }
+    }
+}
+
+impl Default for Color {
+    fn default() -> Self {
+        Color::Auto
+    }
+}

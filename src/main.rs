@@ -21,6 +21,7 @@ const DB_PATH: &str = "/var/lib/pacman/";
 
 #[derive(Default)]
 struct Options {
+    color: enums::Color,
     format: Option<String>,
     quiet: u64,
     upgradable_only: bool,
@@ -34,6 +35,15 @@ fn main() {
     let args = App::from_yaml(yaml).get_matches();
 
     let options = Options {
+        color: {
+            match args.value_of("color") {
+                Some(c) => c
+                    .to_string()
+                    .parse::<enums::Color>()
+                    .expect("parse::<Color> failed"),
+                None => enums::Color::Auto,
+            }
+        },
         format: {
             match args.value_of("format") {
                 Some(f) => Some(f.to_string()),
@@ -365,19 +375,19 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
             Some(ref v) if avg.status != enums::Status::Vulnerable => {
                 // Quiet option
                 if options.quiet >= 1 {
-                    write_with_colours(&mut *t, pkg, Some(avg.severity.to_color()), None);
+                    write_with_colours(&mut *t, pkg, options, Some(avg.severity.to_color()), None);
 
                     if options.quiet == 1 {
                         write!(t, ">=").expect("term::write failed");
-                        write_with_colours(&mut *t, v, Some(term::color::GREEN), None);
+                        write_with_colours(&mut *t, v, options, Some(term::color::GREEN), None);
                     }
                 } else {
                     match options.format {
                         Some(ref f) => {
-                            print_avg_formatted(&mut *t, pkg, avg, v, options.show_testing, f);
+                            print_avg_formatted(&mut *t, pkg, avg, v, options, f);
                         }
                         None => {
-                            print_avg_colored(&mut *t, pkg, avg, v, options.show_testing);
+                            print_avg_colored(&mut *t, pkg, avg, v, options);
                         }
                     }
                 }
@@ -387,14 +397,20 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
             _ => {
                 if !options.upgradable_only {
                     if options.quiet > 0 {
-                        write_with_colours(&mut *t, pkg, Some(avg.severity.to_color()), None);
+                        write_with_colours(
+                            &mut *t,
+                            pkg,
+                            options,
+                            Some(avg.severity.to_color()),
+                            None,
+                        );
                     } else {
                         match options.format {
                             Some(ref f) => {
-                                print_avg_formatted(&mut *t, pkg, avg, "", options.show_testing, f);
+                                print_avg_formatted(&mut *t, pkg, avg, "", options, f);
                             }
                             None => {
-                                print_avg_colored(&mut *t, pkg, avg, "", options.show_testing);
+                                print_avg_colored(&mut *t, pkg, avg, "", options);
                             }
                         }
                     }
@@ -412,17 +428,18 @@ fn print_avg_colored(
     pkg: &str,
     avg: &avg::AVG,
     version: &str,
-    show_testing: bool,
+    options: &Options,
 ) {
     // Bold package
     write!(t, "Package ").expect("term::write failed");
-    write_with_colours(t, pkg, None, Some(term::Attr::Bold));
+    write_with_colours(t, pkg, options, None, Some(term::Attr::Bold));
     // Normal "is affected by {issues}"
     write!(t, " is affected by {}. ", avg.issues.join(", ")).expect("term::write failed");
     // Colored severit
     write_with_colours(
         t,
         avg.severity.to_string().as_str(),
+        options,
         Some(avg.severity.to_color()),
         None,
     );
@@ -432,12 +449,24 @@ fn print_avg_colored(
         if avg.status == enums::Status::Fixed {
             // Print: Update to {}!
             write!(t, " Update to ").expect("term::write failed");
-            write_with_colours(t, version, Some(term::color::GREEN), Some(term::Attr::Bold));
+            write_with_colours(
+                t,
+                version,
+                options,
+                Some(term::color::GREEN),
+                Some(term::Attr::Bold),
+            );
             write!(t, "!").expect("term::write failed");
-        } else if avg.status == enums::Status::Testing && show_testing {
+        } else if avg.status == enums::Status::Testing && options.show_testing {
             // Print: Update to {} from the testing repos!"
             write!(t, " Update to ").expect("term::write failed");
-            write_with_colours(t, version, Some(term::color::GREEN), Some(term::Attr::Bold));
+            write_with_colours(
+                t,
+                version,
+                options,
+                Some(term::color::GREEN),
+                Some(term::Attr::Bold),
+            );
             write!(t, " from the testing repos!").expect("term::write failed");
         }
     }
@@ -449,7 +478,7 @@ fn print_avg_formatted(
     pkg: &str,
     avg: &avg::AVG,
     version: &str,
-    show_testing: bool,
+    options: &Options,
     f: &str,
 ) {
     let mut chars = f.chars().peekable();
@@ -458,7 +487,7 @@ fn print_avg_formatted(
         match chars.next() {
             Some('%') => match chars.peek() {
                 Some('n') => {
-                    write_with_colours(t, pkg, Some(avg.severity.to_color()), None);
+                    write_with_colours(t, pkg, options, Some(avg.severity.to_color()), None);
                     chars.next();
                 }
                 Some('c') => {
@@ -469,11 +498,12 @@ fn print_avg_formatted(
                 Some('v') => {
                     if !version.is_empty()
                         && (avg.status == Status::Fixed
-                            || (avg.status == Status::Testing && show_testing))
+                            || (avg.status == Status::Testing && options.show_testing))
                     {
                         write_with_colours(
                             t,
                             version,
+                            options,
                             Some(term::color::GREEN),
                             Some(term::Attr::Bold),
                         );
@@ -497,10 +527,13 @@ fn print_avg_formatted(
 fn write_with_colours(
     t: &mut term::StdoutTerminal,
     text: &str,
+    options: &Options,
     color: Option<term::color::Color>,
     attribute: Option<term::Attr>,
 ) {
-    if atty::is(Stream::Stdout) {
+    let show_colors = (options.color != enums::Color::Never) && atty::is(Stream::Stdout);
+
+    if show_colors {
         if let Some(c) = color {
             t.fg(c).expect("term::fg failed");
         }
@@ -512,7 +545,7 @@ fn write_with_colours(
 
     write!(t, "{}", text).expect("term::write failed");
 
-    if atty::is(Stream::Stdout) {
+    if show_colors {
         t.reset().expect("term::stdout failed");
     }
 }
