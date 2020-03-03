@@ -9,5 +9,5 @@ Depends = curl
 Depends = openssl
 Depends = arch-audit
 When = PostTransaction
-Exec = /usr/bin/arch-audit
+Exec = /usr/bin/arch-audit --color always
 Description = Checking packages for known vulnerabilities
