@@ -30,7 +30,7 @@ args:
         short: r
         long: recursive
         multiple: true
-        help: Prints packages that depend on vulnerable packages and are thus potentially vulnerable as well. Set twice to show the packages that require them as well. Set three times to show ALL the packages that requires them.
+        help: Prints packages that depend on vulnerable packages and are thus potentially vulnerable as well. Set twice to show ALL the packages that requires them.
     - testing:
         short: t
         long: show-testing

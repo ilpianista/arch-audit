@@ -20,6 +20,12 @@ Show only vulnerable package names and their versions. Set twice to hide the
 version also.
 .RE
 .PP
+\fI-r, --recursive\fR
+.RS 4
+Prints packages that depend on vulnerable packages and are thus potentially
+vulnerable as well. Set twice to show ALL the packages that requires them.
+.RE
+.PP
 \fI-t, --show-testing\fR
 .RS 4
 Show packages which are in the [testing] repos. See
