@@ -428,7 +428,8 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
 
     let mut t = match term::stdout() {
         Some(x) => x,
-        None => Box::new(TerminfoTerminal::new_with_terminfo(io::stdout(), fake_term)) as Box<StdoutTerminal>
+        None => Box::new(TerminfoTerminal::new_with_terminfo(io::stdout(), fake_term))
+            as Box<StdoutTerminal>,
     };
 
     for (pkg, avg) in avgs {
