@@ -7,10 +7,13 @@ use log::{debug, info};
 use serde_json::Value;
 use std::cmp::Ordering;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::default::Default;
+use std::io;
 use std::process::exit;
 use std::str;
+use term::terminfo::TermInfo;
+use term::{StdoutTerminal, TerminfoTerminal};
 
 mod avg;
 mod enums;
@@ -416,7 +419,18 @@ fn test_merge_avgs() {
 
 /// Print a list of `avg::AVG`
 fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
-    let mut t = term::stdout().expect("term::stdout failed");
+    let fake_term = TermInfo {
+        names: vec![],
+        bools: HashMap::new(),
+        numbers: HashMap::new(),
+        strings: HashMap::new(),
+    };
+
+    let mut t = match term::stdout() {
+        Some(x) => x,
+        None => Box::new(TerminfoTerminal::new_with_terminfo(io::stdout(), fake_term)) as Box<StdoutTerminal>
+    };
+
     for (pkg, avg) in avgs {
         match avg.fixed {
             Some(ref v) if avg.status != enums::Status::Vulnerable => {
