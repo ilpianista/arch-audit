@@ -511,13 +511,7 @@ fn print_avg_colored(
     write!(t, "Package ").expect("term::write failed");
     write_with_colours(t, pkg, options, None, Some(term::Attr::Bold));
     // Normal "is affected by {issues}"
-    write!(
-        t,
-        " is affected by {}: {}. ",
-        avg.issues.join(", "),
-        avg.avg_type
-    )
-    .expect("term::write failed");
+    write!(t, " is affected by {}. ", avg.issues.join(", "),).expect("term::write failed");
 
     if !avg.required_by.is_empty() {
         write!(t, "It's required by {}. ", avg.required_by.join(", ")).expect("term::write failed");
