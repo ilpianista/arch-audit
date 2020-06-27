@@ -188,6 +188,10 @@ fn to_avg(data: &Value) -> avg::AVG {
             .parse::<enums::Status>()
             .expect("parse::<Status> failed"),
         required_by: vec![],
+        avg_type: data["type"]
+            .as_str()
+            .expect("Value::as_str failed")
+            .to_string(),
     }
 }
 
@@ -195,7 +199,8 @@ fn to_avg(data: &Value) -> avg::AVG {
 fn test_to_avg() {
     let json: Value = serde_json::from_str(
         "{\"issues\": [\"CVE-1\", \"CVE-2\"], \"fixed\": \"1.0\", \
-         \"severity\": \"High\", \"status\": \"Not affected\"}",
+         \"severity\": \"High\", \"status\": \"Not affected\", \
+         \"type\": \"multiple issues\"}",
     )
     .expect("serde_json::from_str failed");
 
@@ -204,10 +209,12 @@ fn test_to_avg() {
     assert_eq!(Some("1.0".to_string()), avg1.fixed);
     assert_eq!(enums::Severity::High, avg1.severity);
     assert_eq!(enums::Status::NotAffected, avg1.status);
+    assert_eq!(false, avg1.avg_type.is_empty());
 
     let json: Value = serde_json::from_str(
         "{\"issues\": [\"CVE-1\"], \"fixed\": null, \
-         \"severity\": \"Low\", \"status\": \"Vulnerable\"}",
+         \"severity\": \"Low\", \"status\": \"Vulnerable\", \
+         \"type\": \"\"}",
     )
     .expect("serde_json::from_str failed");
 
@@ -216,6 +223,7 @@ fn test_to_avg() {
     assert_eq!(None, avg2.fixed);
     assert_eq!(enums::Severity::Low, avg2.severity);
     assert_eq!(enums::Status::Vulnerable, avg2.status);
+    assert_eq!(true, avg2.avg_type.is_empty());
 }
 
 /// Given a package and an `avg::AVG`, returns true if the system is affected
@@ -255,6 +263,7 @@ fn test_system_is_affected() {
         severity: enums::Severity::Unknown,
         status: enums::Status::Unknown,
         required_by: vec![],
+        avg_type: String::default(),
     };
 
     assert_eq!(false, system_is_affected(&db, &"pacman".to_string(), &avg1));
@@ -265,6 +274,7 @@ fn test_system_is_affected() {
         severity: enums::Severity::Unknown,
         status: enums::Status::Unknown,
         required_by: vec![],
+        avg_type: String::default(),
     };
 
     assert!(system_is_affected(&db, &"pacman".to_string(), &avg2));
@@ -308,6 +318,7 @@ fn merge_avgs(
         let mut avg_fixed: Option<String> = None;
         let mut avg_severity = enums::Severity::Unknown;
         let mut avg_status = enums::Status::Unknown;
+        let mut avg_type = String::from("");
 
         for a in list.iter() {
             avg_issues.append(&mut a.issues.clone());
@@ -331,6 +342,13 @@ fn merge_avgs(
             if a.status > avg_status {
                 avg_status = a.status;
             }
+
+            if !a.avg_type.is_empty() {
+                if !avg_type.is_empty() {
+                    avg_type += " ";
+                }
+                avg_type += &a.avg_type;
+            }
         }
 
         let mut avg = avg::AVG {
@@ -339,6 +357,7 @@ fn merge_avgs(
             severity: avg_severity,
             status: avg_status,
             required_by: vec![],
+            avg_type: avg_type,
         };
 
         if options.recursive >= 1 {
@@ -371,6 +390,7 @@ fn test_merge_avgs() {
         severity: enums::Severity::Unknown,
         status: enums::Status::Fixed,
         required_by: vec![],
+        avg_type: String::default(),
     };
 
     let avg2 = avg::AVG {
@@ -379,6 +399,7 @@ fn test_merge_avgs() {
         severity: enums::Severity::High,
         status: enums::Status::Testing,
         required_by: vec![],
+        avg_type: String::default(),
     };
 
     assert!(enums::Severity::Critical > enums::Severity::High);
@@ -496,7 +517,13 @@ fn print_avg_colored(
     write!(t, "Package ").expect("term::write failed");
     write_with_colours(t, pkg, options, None, Some(term::Attr::Bold));
     // Normal "is affected by {issues}"
-    write!(t, " is affected by {}. ", avg.issues.join(", ")).expect("term::write failed");
+    write!(
+        t,
+        " is affected by {}: {}. ",
+        avg.issues.join(", "),
+        avg.avg_type
+    )
+    .expect("term::write failed");
 
     if !avg.required_by.is_empty() {
         write!(t, "It's required by {}. ", avg.required_by.join(", ")).expect("term::write failed");
@@ -579,6 +606,12 @@ fn print_avg_formatted(
                             Some(term::color::GREEN),
                             Some(term::Attr::Bold),
                         );
+                    }
+                    chars.next();
+                }
+                Some('t') => {
+                    if !avg.avg_type.is_empty() {
+                        write!(t, "{}", avg.avg_type).expect("term::write failed");
                     }
                     chars.next();
                 }
