@@ -7,7 +7,7 @@ use log::{debug, info};
 use serde_json::Value;
 use std::cmp::Ordering;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::default::Default;
 use std::io;
 use std::process::exit;
@@ -318,7 +318,7 @@ fn merge_avgs(
         let mut avg_fixed: Option<String> = None;
         let mut avg_severity = enums::Severity::Unknown;
         let mut avg_status = enums::Status::Unknown;
-        let mut avg_type = String::from("");
+        let mut avg_types = HashSet::new();
 
         for a in list.iter() {
             avg_issues.append(&mut a.issues.clone());
@@ -342,13 +342,7 @@ fn merge_avgs(
             if a.status > avg_status {
                 avg_status = a.status;
             }
-
-            if !a.avg_type.is_empty() {
-                if !avg_type.is_empty() {
-                    avg_type += " ";
-                }
-                avg_type += &a.avg_type;
-            }
+            avg_types.insert(&a.avg_type);
         }
 
         let mut avg = avg::AVG {
@@ -357,7 +351,7 @@ fn merge_avgs(
             severity: avg_severity,
             status: avg_status,
             required_by: vec![],
-            avg_type: avg_type,
+            avg_type: avg_types.iter().join(","),
         };
 
         if options.recursive >= 1 {
