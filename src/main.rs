@@ -30,6 +30,7 @@ struct Options {
     recursive: u64,
     upgradable_only: bool,
     show_testing: bool,
+    show_cve: bool,
 }
 
 fn main() {
@@ -58,6 +59,7 @@ fn main() {
         recursive: args.occurrences_of("recursive"),
         upgradable_only: args.is_present("upgradable"),
         show_testing: args.is_present("testing"),
+        show_cve: args.is_present("show-cve"),
     };
 
     let mut avgs = String::new();
@@ -511,7 +513,10 @@ fn print_avg_colored(
     write!(t, "Package ").expect("term::write failed");
     write_with_colours(t, pkg, options, None, Some(term::Attr::Bold));
     // Normal "is affected by {issues}"
-    write!(t, " is affected by {}. ", avg.issues.join(", "),).expect("term::write failed");
+    write!(t, " is affected by {}. ", avg.avg_type).expect("term::write failed");
+    if options.show_cve {
+        write!(t, "{}. ", avg.issues.join(",")).expect("term::write failed");
+    }
 
     if !avg.required_by.is_empty() {
         write!(t, "It's required by {}. ", avg.required_by.join(", ")).expect("term::write failed");
