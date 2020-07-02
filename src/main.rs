@@ -166,14 +166,6 @@ fn get_required_by(db: &alpm::Db, packages: &[String]) -> Vec<String> {
 
 /// Converts a JSON to an `avg::AVG`
 fn to_avg(data: &Value) -> avg::AVG {
-    let mut avg_types = HashSet::new();
-    avg_types.insert(
-        data["type"]
-            .as_str()
-            .expect("Value::as_str failed")
-            .to_string(),
-    );
-
     avg::AVG {
         issues: data["issues"]
             .as_array()
@@ -198,7 +190,10 @@ fn to_avg(data: &Value) -> avg::AVG {
             .parse::<enums::Status>()
             .expect("parse::<Status> failed"),
         required_by: vec![],
-        avg_types: avg_types,
+        avg_types: vec![data["type"]
+            .as_str()
+            .expect("Value::as_str failed")
+            .to_string()],
     }
 }
 
@@ -270,7 +265,7 @@ fn test_system_is_affected() {
         severity: enums::Severity::Unknown,
         status: enums::Status::Unknown,
         required_by: vec![],
-        avg_types: HashSet::default(),
+        avg_types: vec![],
     };
 
     assert_eq!(false, system_is_affected(&db, &"pacman".to_string(), &avg1));
@@ -281,7 +276,7 @@ fn test_system_is_affected() {
         severity: enums::Severity::Unknown,
         status: enums::Status::Unknown,
         required_by: vec![],
-        avg_types: HashSet::default(),
+        avg_types: vec![],
     };
 
     assert!(system_is_affected(&db, &"pacman".to_string(), &avg2));
@@ -358,7 +353,7 @@ fn merge_avgs(
             severity: avg_severity,
             status: avg_status,
             required_by: vec![],
-            avg_types: avg_types,
+            avg_types: avg_types.iter().cloned().collect(),
         };
 
         if options.recursive >= 1 {
