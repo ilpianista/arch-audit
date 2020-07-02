@@ -523,7 +523,7 @@ fn print_avg_colored(
     // Normal "is affected by {issues}"
     write!(t, " is affected by {}. ", avg.avg_types.iter().join(", ")).expect("term::write failed");
     if options.show_cve {
-        write!(t, "{}. ", avg.issues.join(",")).expect("term::write failed");
+        write!(t, "({}). ", avg.issues.join(",")).expect("term::write failed");
     }
 
     if !avg.required_by.is_empty() {
