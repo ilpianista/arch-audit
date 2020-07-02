@@ -353,7 +353,7 @@ fn merge_avgs(
             severity: avg_severity,
             status: avg_status,
             required_by: vec![],
-            avg_types: avg_types.iter().cloned().collect(),
+            avg_types: avg_types.into_iter().collect(),
         };
 
         if options.recursive >= 1 {
@@ -386,10 +386,7 @@ fn test_merge_avgs() {
         severity: enums::Severity::Unknown,
         status: enums::Status::Fixed,
         required_by: vec![],
-        avg_types: ["arbitrary code execution".to_string()]
-            .iter()
-            .cloned()
-            .collect(),
+        avg_types: vec!["arbitrary code execution".to_string()],
     };
 
     let avg2 = avg::AVG {
@@ -398,7 +395,7 @@ fn test_merge_avgs() {
         severity: enums::Severity::High,
         status: enums::Status::Testing,
         required_by: vec![],
-        avg_types: ["denial of service".to_string()].iter().cloned().collect(),
+        avg_types: vec!["denial of service".to_string()],
     };
 
     assert!(enums::Severity::Critical > enums::Severity::High);
