@@ -1,4 +1,5 @@
 use crate::enums::{Severity, Status};
+use std::collections::HashSet;
 
 #[derive(Clone, Debug)]
 pub struct AVG {
@@ -7,7 +8,7 @@ pub struct AVG {
     pub severity: Severity,
     pub status: Status,
     pub required_by: Vec<String>,
-    pub avg_type: String,
+    pub avg_types: HashSet<String>,
 }
 
 impl Default for AVG {
@@ -18,7 +19,7 @@ impl Default for AVG {
             severity: Severity::Unknown,
             status: Status::Unknown,
             required_by: vec![],
-            avg_type: String::default(),
+            avg_types: HashSet::default(),
         }
     }
 }
