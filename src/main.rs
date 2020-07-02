@@ -7,7 +7,7 @@ use log::{debug, info};
 use serde_json::Value;
 use std::cmp::Ordering;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::default::Default;
 use std::io;
 use std::process::exit;
@@ -30,6 +30,7 @@ struct Options {
     recursive: u64,
     upgradable_only: bool,
     show_testing: bool,
+    show_cve: bool,
 }
 
 fn main() {
@@ -58,6 +59,7 @@ fn main() {
         recursive: args.occurrences_of("recursive"),
         upgradable_only: args.is_present("upgradable"),
         show_testing: args.is_present("testing"),
+        show_cve: args.is_present("show-cve"),
     };
 
     let mut avgs = String::new();
@@ -188,6 +190,10 @@ fn to_avg(data: &Value) -> avg::AVG {
             .parse::<enums::Status>()
             .expect("parse::<Status> failed"),
         required_by: vec![],
+        avg_types: vec![data["type"]
+            .as_str()
+            .expect("Value::as_str failed")
+            .to_string()],
     }
 }
 
@@ -195,7 +201,8 @@ fn to_avg(data: &Value) -> avg::AVG {
 fn test_to_avg() {
     let json: Value = serde_json::from_str(
         "{\"issues\": [\"CVE-1\", \"CVE-2\"], \"fixed\": \"1.0\", \
-         \"severity\": \"High\", \"status\": \"Not affected\"}",
+         \"severity\": \"High\", \"status\": \"Not affected\", \
+         \"type\": \"multiple issues\"}",
     )
     .expect("serde_json::from_str failed");
 
@@ -204,10 +211,12 @@ fn test_to_avg() {
     assert_eq!(Some("1.0".to_string()), avg1.fixed);
     assert_eq!(enums::Severity::High, avg1.severity);
     assert_eq!(enums::Status::NotAffected, avg1.status);
+    assert_eq!(false, avg1.avg_types.is_empty());
 
     let json: Value = serde_json::from_str(
         "{\"issues\": [\"CVE-1\"], \"fixed\": null, \
-         \"severity\": \"Low\", \"status\": \"Vulnerable\"}",
+         \"severity\": \"Low\", \"status\": \"Vulnerable\", \
+         \"type\": \"multiple issues\"}",
     )
     .expect("serde_json::from_str failed");
 
@@ -216,6 +225,7 @@ fn test_to_avg() {
     assert_eq!(None, avg2.fixed);
     assert_eq!(enums::Severity::Low, avg2.severity);
     assert_eq!(enums::Status::Vulnerable, avg2.status);
+    assert_eq!(false, avg2.avg_types.is_empty());
 }
 
 /// Given a package and an `avg::AVG`, returns true if the system is affected
@@ -255,6 +265,7 @@ fn test_system_is_affected() {
         severity: enums::Severity::Unknown,
         status: enums::Status::Unknown,
         required_by: vec![],
+        avg_types: vec![],
     };
 
     assert_eq!(false, system_is_affected(&db, &"pacman".to_string(), &avg1));
@@ -265,6 +276,7 @@ fn test_system_is_affected() {
         severity: enums::Severity::Unknown,
         status: enums::Status::Unknown,
         required_by: vec![],
+        avg_types: vec![],
     };
 
     assert!(system_is_affected(&db, &"pacman".to_string(), &avg2));
@@ -308,6 +320,7 @@ fn merge_avgs(
         let mut avg_fixed: Option<String> = None;
         let mut avg_severity = enums::Severity::Unknown;
         let mut avg_status = enums::Status::Unknown;
+        let mut avg_types: HashSet<String> = HashSet::new();
 
         for a in list.iter() {
             avg_issues.append(&mut a.issues.clone());
@@ -331,6 +344,7 @@ fn merge_avgs(
             if a.status > avg_status {
                 avg_status = a.status;
             }
+            avg_types.extend(a.avg_types.iter().cloned());
         }
 
         let mut avg = avg::AVG {
@@ -339,6 +353,7 @@ fn merge_avgs(
             severity: avg_severity,
             status: avg_status,
             required_by: vec![],
+            avg_types: avg_types.into_iter().collect(),
         };
 
         if options.recursive >= 1 {
@@ -371,6 +386,7 @@ fn test_merge_avgs() {
         severity: enums::Severity::Unknown,
         status: enums::Status::Fixed,
         required_by: vec![],
+        avg_types: vec!["arbitrary code execution".to_string()],
     };
 
     let avg2 = avg::AVG {
@@ -379,6 +395,7 @@ fn test_merge_avgs() {
         severity: enums::Severity::High,
         status: enums::Status::Testing,
         required_by: vec![],
+        avg_types: vec!["denial of service".to_string()],
     };
 
     assert!(enums::Severity::Critical > enums::Severity::High);
@@ -414,6 +431,14 @@ fn test_merge_avgs() {
             .get(&"package".to_string())
             .expect("'package' key not found")
             .status
+    );
+    assert_eq!(
+        2,
+        merged
+            .get(&"package".to_string())
+            .expect("'package' key not found")
+            .avg_types
+            .len()
     );
 }
 
@@ -496,7 +521,10 @@ fn print_avg_colored(
     write!(t, "Package ").expect("term::write failed");
     write_with_colours(t, pkg, options, None, Some(term::Attr::Bold));
     // Normal "is affected by {issues}"
-    write!(t, " is affected by {}. ", avg.issues.join(", ")).expect("term::write failed");
+    write!(t, " is affected by {}. ", avg.avg_types.iter().join(", ")).expect("term::write failed");
+    if options.show_cve {
+        write!(t, "({}). ", avg.issues.join(",")).expect("term::write failed");
+    }
 
     if !avg.required_by.is_empty() {
         write!(t, "It's required by {}. ", avg.required_by.join(", ")).expect("term::write failed");
@@ -579,6 +607,13 @@ fn print_avg_formatted(
                             Some(term::color::GREEN),
                             Some(term::Attr::Bold),
                         );
+                    }
+                    chars.next();
+                }
+                Some('t') => {
+                    if !avg.avg_types.is_empty() {
+                        write!(t, "{}", avg.avg_types.iter().join(", "))
+                            .expect("term::write failed");
                     }
                     chars.next();
                 }

@@ -39,3 +39,7 @@ args:
         short: u
         long: upgradable
         help: Show only packages that have already been fixed
+    - show-cve:
+        short: c
+        long: show-cve
+        help: Print the CVE numbers.

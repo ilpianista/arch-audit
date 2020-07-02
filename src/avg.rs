@@ -7,6 +7,7 @@ pub struct AVG {
     pub severity: Severity,
     pub status: Status,
     pub required_by: Vec<String>,
+    pub avg_types: Vec<String>,
 }
 
 impl Default for AVG {
@@ -17,6 +18,7 @@ impl Default for AVG {
             severity: Severity::Unknown,
             status: Status::Unknown,
             required_by: vec![],
+            avg_types: vec![],
         }
     }
 }
