@@ -334,6 +334,10 @@ fn print_affected_formatted(
     while let Some(c) = chars.next() {
         match c {
             '%' => match chars.peek() {
+                Some('%') => {
+                    write!(t, "%").expect("term::write failed");
+                    chars.next();
+                }
                 Some('r') => {
                     write!(
                         t,
@@ -381,7 +385,7 @@ fn print_affected_formatted(
                 }
                 Some(x) => {
                     debug!("Unknown placeholder {}", x);
-                    write!(t, "%").expect("term::write failed");
+                    chars.next();
                 }
                 None => {}
             },
