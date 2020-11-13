@@ -153,9 +153,10 @@ fn get_required_by(db: &alpm::Db, packages: &[String]) -> Vec<String> {
     for pkg in packages {
         required_by.append(
             &mut db
-                .pkg(pkg)
+                .pkg(pkg.as_str())
                 .unwrap()
                 .required_by()
+                .into_iter()
                 .collect::<Vec<_>>(),
         );
     }
