@@ -148,20 +148,10 @@ fn main() {
 }
 
 fn get_required_by(db: &alpm::Db, packages: &[String]) -> Vec<String> {
-    let mut required_by = vec![];
-
-    for pkg in packages {
-        required_by.append(
-            &mut db
-                .pkg(pkg.as_str())
-                .unwrap()
-                .required_by()
-                .into_iter()
-                .collect::<Vec<_>>(),
-        );
-    }
-
-    required_by
+    packages
+        .iter()
+        .flat_map(|pkg| db.pkg(pkg.as_str()).unwrap().required_by())
+        .collect()
 }
 
 /// Converts a JSON to an `avg::AVG`
@@ -197,37 +187,6 @@ fn to_avg(data: &Value) -> avg::AVG {
     }
 }
 
-#[test]
-fn test_to_avg() {
-    let json: Value = serde_json::from_str(
-        "{\"issues\": [\"CVE-1\", \"CVE-2\"], \"fixed\": \"1.0\", \
-         \"severity\": \"High\", \"status\": \"Not affected\", \
-         \"type\": \"multiple issues\"}",
-    )
-    .expect("serde_json::from_str failed");
-
-    let avg1 = to_avg(&json);
-    assert_eq!(2, avg1.issues.len());
-    assert_eq!(Some("1.0".to_string()), avg1.fixed);
-    assert_eq!(enums::Severity::High, avg1.severity);
-    assert_eq!(enums::Status::NotAffected, avg1.status);
-    assert_eq!(false, avg1.avg_types.is_empty());
-
-    let json: Value = serde_json::from_str(
-        "{\"issues\": [\"CVE-1\"], \"fixed\": null, \
-         \"severity\": \"Low\", \"status\": \"Vulnerable\", \
-         \"type\": \"multiple issues\"}",
-    )
-    .expect("serde_json::from_str failed");
-
-    let avg2 = to_avg(&json);
-    assert_eq!(1, avg2.issues.len());
-    assert_eq!(None, avg2.fixed);
-    assert_eq!(enums::Severity::Low, avg2.severity);
-    assert_eq!(enums::Status::Vulnerable, avg2.status);
-    assert_eq!(false, avg2.avg_types.is_empty());
-}
-
 /// Given a package and an `avg::AVG`, returns true if the system is affected
 fn system_is_affected(db: &alpm::Db, pkg: &str, avg: &avg::AVG) -> bool {
     match db.pkg(pkg) {
@@ -254,34 +213,6 @@ fn system_is_affected(db: &alpm::Db, pkg: &str, avg: &avg::AVG) -> bool {
     false
 }
 
-#[test]
-fn test_system_is_affected() {
-    let pacman = alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("Alpm::new failed");
-    let db = pacman.localdb();
-
-    let avg1 = avg::AVG {
-        issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
-        fixed: Some("1.0.0".to_string()),
-        severity: enums::Severity::Unknown,
-        status: enums::Status::Unknown,
-        required_by: vec![],
-        avg_types: vec![],
-    };
-
-    assert_eq!(false, system_is_affected(&db, &"pacman".to_string(), &avg1));
-
-    let avg2 = avg::AVG {
-        issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
-        fixed: Some("7.0.0".to_string()),
-        severity: enums::Severity::Unknown,
-        status: enums::Status::Unknown,
-        required_by: vec![],
-        avg_types: vec![],
-    };
-
-    assert!(system_is_affected(&db, &"pacman".to_string(), &avg2));
-}
-
 /// Given a list of package names, returns true when at least one is installed
 fn package_is_installed(db: &alpm::Db, packages: &[String]) -> bool {
     for pkg in packages {
@@ -294,18 +225,6 @@ fn package_is_installed(db: &alpm::Db, packages: &[String]) -> bool {
         }
     }
     false
-}
-
-#[test]
-fn test_package_is_installed() {
-    let pacman = alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("Alpm::new failed");
-    let db = pacman.localdb();
-
-    let packages = vec!["pacman".to_string(), "pac".to_string()];
-    assert!(package_is_installed(&db, &packages));
-
-    let packages = vec!["pac".to_string()];
-    assert_eq!(false, package_is_installed(&db, &packages));
 }
 
 /// Merge a list of `avg::AVG` into a single `avg::AVG` using major version as version
@@ -352,7 +271,7 @@ fn merge_avgs(
             fixed: avg_fixed,
             severity: avg_severity,
             status: avg_status,
-            required_by: vec![],
+            required_by: Vec::new(),
             avg_types: avg_types.into_iter().collect(),
         };
 
@@ -374,72 +293,6 @@ fn merge_avgs(
     }
 
     avgs
-}
-
-#[test]
-fn test_merge_avgs() {
-    let mut avgs: BTreeMap<String, Vec<_>> = BTreeMap::new();
-
-    let avg1 = avg::AVG {
-        issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
-        fixed: Some("1.0.0".to_string()),
-        severity: enums::Severity::Unknown,
-        status: enums::Status::Fixed,
-        required_by: vec![],
-        avg_types: vec!["arbitrary code execution".to_string()],
-    };
-
-    let avg2 = avg::AVG {
-        issues: vec!["CVE-4".to_string(), "CVE-10".to_string()],
-        fixed: Some("0.9.8".to_string()),
-        severity: enums::Severity::High,
-        status: enums::Status::Testing,
-        required_by: vec![],
-        avg_types: vec!["denial of service".to_string()],
-    };
-
-    assert!(enums::Severity::Critical > enums::Severity::High);
-
-    avgs.insert("package".to_string(), vec![avg1.clone(), avg2.clone()]);
-
-    avgs.insert("package2".to_string(), vec![avg1, avg2]);
-
-    let pacman = alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("Alpm::new failed");
-    let db = pacman.localdb();
-
-    let merged = merge_avgs(&avgs, &db, &Options::default());
-
-    assert_eq!(2, merged.len());
-    assert_eq!(
-        4,
-        merged
-            .get(&"package".to_string())
-            .expect("'package' key not found")
-            .issues
-            .len()
-    );
-    assert_eq!(
-        enums::Severity::High,
-        merged
-            .get(&"package".to_string())
-            .expect("'package' key not found")
-            .severity
-    );
-    assert_eq!(
-        enums::Status::Testing,
-        merged
-            .get(&"package".to_string())
-            .expect("'package' key not found")
-            .status
-    );
-    assert_eq!(
-        2,
-        merged
-            .get(&"package".to_string())
-            .expect("'package' key not found")
-            .avg_types
-            .len()
-    );
 }
 
 /// Print a list of `avg::AVG`
@@ -581,17 +434,17 @@ fn print_avg_formatted(
     loop {
         match chars.next() {
             Some('%') => match chars.peek() {
+                Some('r') => {
+                    write!(t, "{}", avg.required_by.iter().join(",").as_str())
+                        .expect("term::write failed");
+                    chars.next();
+                }
                 Some('n') => {
                     write_with_colours(t, pkg, options, Some(avg.severity.to_color()), None);
                     chars.next();
                 }
                 Some('c') => {
                     write!(t, "{}", avg.issues.iter().join(",").as_str())
-                        .expect("term::write failed");
-                    chars.next();
-                }
-                Some('r') => {
-                    write!(t, "{}", avg.required_by.iter().join(",").as_str())
                         .expect("term::write failed");
                     chars.next();
                 }
@@ -655,5 +508,130 @@ fn write_with_colours(
 
     if show_colors {
         t.reset().expect("term::stdout failed");
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn test_to_avg() {
+        let json: Value = serde_json::from_str(
+            "{\"issues\": [\"CVE-1\", \"CVE-2\"], \"fixed\": \"1.0\", \
+         \"severity\": \"High\", \"status\": \"Not affected\"}",
+        )
+        .expect("serde_json::from_str failed");
+
+        let avg1 = to_avg(&json);
+        assert_eq!(2, avg1.issues.len());
+        assert_eq!(Some("1.0".to_string()), avg1.fixed);
+        assert_eq!(enums::Severity::High, avg1.severity);
+        assert_eq!(enums::Status::NotAffected, avg1.status);
+
+        let json: Value = serde_json::from_str(
+            "{\"issues\": [\"CVE-1\"], \"fixed\": null, \
+         \"severity\": \"Low\", \"status\": \"Vulnerable\"}",
+        )
+        .expect("serde_json::from_str failed");
+
+        let avg2 = to_avg(&json);
+        assert_eq!(1, avg2.issues.len());
+        assert_eq!(None, avg2.fixed);
+        assert_eq!(enums::Severity::Low, avg2.severity);
+        assert_eq!(enums::Status::Vulnerable, avg2.status);
+    }
+
+    #[test]
+    fn test_system_is_affected() {
+        let pacman = alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("Alpm::new failed");
+        let db = pacman.localdb();
+
+        let avg1 = avg::AVG {
+            issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+            fixed: Some("1.0.0".to_string()),
+            severity: enums::Severity::Unknown,
+            status: enums::Status::Unknown,
+            required_by: Vec::new(),
+        };
+
+        assert_eq!(false, system_is_affected(&db, &"pacman".to_string(), &avg1));
+
+        let avg2 = avg::AVG {
+            issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+            fixed: Some("7.0.0".to_string()),
+            severity: enums::Severity::Unknown,
+            status: enums::Status::Unknown,
+            required_by: Vec::new(),
+        };
+
+        assert!(system_is_affected(&db, &"pacman".to_string(), &avg2));
+    }
+
+    #[test]
+    fn test_package_is_installed() {
+        let pacman = alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("Alpm::new failed");
+        let db = pacman.localdb();
+
+        let packages = vec!["pacman".to_string(), "pac".to_string()];
+        assert!(package_is_installed(&db, &packages));
+
+        let packages = vec!["pac".to_string()];
+        assert_eq!(false, package_is_installed(&db, &packages));
+    }
+
+    #[test]
+    fn test_merge_avgs() {
+        let mut avgs: BTreeMap<String, Vec<_>> = BTreeMap::new();
+
+        let avg1 = avg::AVG {
+            issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+            fixed: Some("1.0.0".to_string()),
+            severity: enums::Severity::Unknown,
+            status: enums::Status::Fixed,
+            required_by: Vec::new(),
+        };
+
+        let avg2 = avg::AVG {
+            issues: vec!["CVE-4".to_string(), "CVE-10".to_string()],
+            fixed: Some("0.9.8".to_string()),
+            severity: enums::Severity::High,
+            status: enums::Status::Testing,
+            required_by: Vec::new(),
+        };
+
+        assert!(enums::Severity::Critical > enums::Severity::High);
+
+        avgs.insert("package".to_string(), vec![avg1.clone(), avg2.clone()]);
+
+        avgs.insert("package2".to_string(), vec![avg1, avg2]);
+
+        let pacman = alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("Alpm::new failed");
+        let db = pacman.localdb();
+
+        let merged = merge_avgs(&avgs, &db, &Options::default());
+
+        assert_eq!(2, merged.len());
+        assert_eq!(
+            4,
+            merged
+                .get(&"package".to_string())
+                .expect("'package' key not found")
+                .issues
+                .len()
+        );
+        assert_eq!(
+            enums::Severity::High,
+            merged
+                .get(&"package".to_string())
+                .expect("'package' key not found")
+                .severity
+        );
+        assert_eq!(
+            enums::Status::Testing,
+            merged
+                .get(&"package".to_string())
+                .expect("'package' key not found")
+                .status
+        );
     }
 }
