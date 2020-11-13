@@ -5,7 +5,7 @@ use clap::{load_yaml, App};
 use curl::easy::Easy;
 use log::{debug, info};
 use serde::Deserialize;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::default::Default;
 use std::io;
 use std::process::exit;
@@ -168,14 +168,27 @@ fn get_required_by(db: Db, pkg: &str) -> Vec<String> {
 
 fn get_required_by_recursive(db: Db, pkg: &str) -> Vec<String> {
     let mut pkgs = Vec::new();
+    let mut seen = HashSet::new();
+    _get_required_by_recursive(db, pkg, &mut pkgs, &mut seen);
+    pkgs
+}
+
+fn _get_required_by_recursive(
+    db: alpm::Db,
+    pkg: &str,
+    pkgs: &mut Vec<String>,
+    seen: &mut HashSet<String>,
+) {
     let new_pkgs = db.pkg(pkg).unwrap().required_by();
+    seen.insert(pkg.to_string());
 
     for pkg in &new_pkgs {
-        pkgs.extend(get_required_by_recursive(db, pkg))
+        if !seen.contains(pkg) {
+            _get_required_by_recursive(db, pkg, pkgs, seen)
+        }
     }
 
     pkgs.extend(new_pkgs);
-    pkgs
 }
 
 /// Given a package and an `avg::AVG`, returns true if the system is affected
