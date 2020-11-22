@@ -156,7 +156,6 @@ fn get_required_by(db: &alpm::Db, packages: &[String]) -> Vec<String> {
                 .pkg(pkg)
                 .unwrap()
                 .required_by()
-                .map(|r| r)
                 .collect::<Vec<_>>(),
         );
     }
