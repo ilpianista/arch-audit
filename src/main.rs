@@ -1,4 +1,5 @@
 use crate::enums::Status;
+use alpm::Alpm;
 use atty::Stream;
 use clap::{load_yaml, App};
 use curl::easy::Easy;
@@ -19,8 +20,6 @@ mod avg;
 mod enums;
 
 const WEBSITE: &str = "https://security.archlinux.org";
-const ROOT_DIR: &str = "/";
-const DB_PATH: &str = "/var/lib/pacman/";
 
 #[derive(Default)]
 struct Options {
@@ -40,15 +39,11 @@ fn main() {
     let args = App::from_yaml(yaml).get_matches();
 
     let options = Options {
-        color: {
-            match args.value_of("color") {
-                Some(c) => c
-                    .to_string()
-                    .parse::<enums::Color>()
-                    .expect("parse::<Color> failed"),
-                None => enums::Color::Auto,
-            }
-        },
+        color: args
+            .value_of("color")
+            .unwrap()
+            .parse()
+            .expect("parse::<Color> failed"),
         format: {
             match args.value_of("format") {
                 Some(f) => Some(f.to_string()),
@@ -92,12 +87,8 @@ fn main() {
         };
     }
 
-    let pacman = match args.value_of("dbpath") {
-        Some(path) => {
-            alpm::Alpm::new(ROOT_DIR, path).expect("alpm::Alpm::new with custom dbpath failed")
-        }
-        None => alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("alpm::Alpm::new failed"),
-    };
+    let dbpath = args.value_of("dbpath").unwrap();
+    let pacman = Alpm::new("/", dbpath).expect("Alpm::new() failed");
     let db = pacman.localdb();
 
     let mut cves: BTreeMap<String, Vec<_>> = BTreeMap::new();
