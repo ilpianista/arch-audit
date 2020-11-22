@@ -2,7 +2,7 @@ use serde::Deserialize;
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Deserialize)]
 pub enum Severity {
     Unknown,
     Low,
@@ -41,7 +41,7 @@ impl Severity {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Deserialize)]
 pub enum Status {
     Unknown,
     #[serde(rename = "Not affected")]

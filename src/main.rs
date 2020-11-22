@@ -1,13 +1,12 @@
 use crate::enums::{Severity, Status};
-use alpm::{Alpm, Db};
+use alpm::{Alpm, Db, Version};
 use atty::Stream;
 use clap::{load_yaml, App};
 use curl::easy::Easy;
 use itertools::Itertools;
 use log::{debug, info};
 use serde::Deserialize;
-use std::cmp::Ordering;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::default::Default;
 use std::io;
 use std::process::exit;
@@ -188,54 +187,33 @@ fn package_is_installed(db: Db, packages: &[String]) -> bool {
 /// Merge a list of `avg::AVG` into a single `avg::AVG` using major version as version
 fn merge_avgs(
     cves: &BTreeMap<String, Vec<Avg>>,
-    db: Db,
+    db: alpm::Db,
     options: &Options,
 ) -> BTreeMap<String, Avg> {
-    let mut avgs: BTreeMap<String, Avg> = BTreeMap::new();
+    let mut avgs = BTreeMap::new();
     for (pkg, list) in cves.iter() {
-        let mut avg_issues = vec![];
-        let mut avg_fixed: Option<String> = None;
-        let mut avg_severity = enums::Severity::Unknown;
-        let mut avg_status = enums::Status::Unknown;
-        let mut avg_types: HashSet<String> = HashSet::new();
+        let avg_fixed = list
+            .iter()
+            .filter_map(|v| v.fixed.as_ref())
+            .max_by_key(|f| Version::new(f.as_str()))
+            .map(|s| s.to_string());
 
-        for a in list.iter() {
-            avg_issues.append(&mut a.issues.clone());
-
-            match avg_fixed.clone() {
-                Some(ref version) => {
-                    if let Some(ref v) = a.fixed {
-                        let cmp = alpm::vercmp(version.to_string(), v.to_string());
-                        if let Ordering::Greater = cmp {
-                            avg_fixed = a.fixed.clone();
-                        }
-                    }
-                }
-                None => avg_fixed = a.fixed.clone(),
-            }
-
-            if a.severity > avg_severity {
-                avg_severity = a.severity;
-            }
-
-            if a.status > avg_status {
-                avg_status = a.status;
-            }
-            avg_types.insert(a.kind.clone());
-        }
+        let avg_severity = list.iter().map(|v| v.severity).max().unwrap();
+        let avg_status = list.iter().map(|v| v.status).max().unwrap();
+        let avg_issues = list.iter().flat_map(|l| l.issues.clone()).collect();
+        let avg_types = list.iter().map(|a| a.kind.clone()).collect();
 
         let mut avg = Avg {
             issues: avg_issues,
             fixed: avg_fixed,
             severity: avg_severity,
             status: avg_status,
-            required_by: Vec::new(),
-            kind: avg_types.into_iter().join(", "),
-            packages: Vec::new(),
+            kind: avg_types,
+            ..Avg::default()
         };
 
         if options.recursive >= 1 {
-            let mut packages = get_required_by(db, &[pkg.clone()]);
+            let mut packages = get_required_by(db, &[pkg.to_string()]);
             avg.required_by.append(&mut packages.clone());
 
             loop {
@@ -248,7 +226,7 @@ fn merge_avgs(
             }
         }
 
-        avgs.insert(pkg.to_string(), avg);
+        avgs.insert(pkg.clone(), avg);
     }
 
     avgs
