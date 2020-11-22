@@ -1,5 +1,5 @@
 use crate::enums::{Severity, Status};
-use alpm::Alpm;
+use alpm::{Alpm, Db};
 use atty::Stream;
 use clap::{load_yaml, App};
 use curl::easy::Easy;
@@ -84,7 +84,7 @@ fn main() {
     let mut cves = BTreeMap::new();
 
     for avg in &avgs.avgs {
-        if !package_is_installed(&db, &avg.packages) {
+        if !package_is_installed(db, &avg.packages) {
             continue;
         }
 
@@ -100,7 +100,7 @@ fn main() {
 
     for (pkg, avgs) in cves {
         for avg in avgs.into_iter() {
-            if system_is_affected(&db, &pkg, avg) {
+            if system_is_affected(db, &pkg, avg) {
                 affected_avgs
                     .entry(pkg.to_string())
                     .or_insert_with(Vec::new)
@@ -109,7 +109,7 @@ fn main() {
         }
     }
 
-    let merged = merge_avgs(&affected_avgs, &db, &options);
+    let merged = merge_avgs(&affected_avgs, db, &options);
     print_avgs(&options, &merged);
 }
 
@@ -142,7 +142,7 @@ fn get_avg_json() -> String {
     avgs
 }
 
-fn get_required_by(db: &alpm::Db, packages: &[String]) -> Vec<String> {
+fn get_required_by(db: Db, packages: &[String]) -> Vec<String> {
     packages
         .iter()
         .flat_map(|pkg| db.pkg(pkg.as_str()).unwrap().required_by())
@@ -150,7 +150,7 @@ fn get_required_by(db: &alpm::Db, packages: &[String]) -> Vec<String> {
 }
 
 /// Given a package and an `avg::AVG`, returns true if the system is affected
-fn system_is_affected(db: &alpm::Db, pkg: &str, avg: &Avg) -> bool {
+fn system_is_affected(db: Db, pkg: &str, avg: &Avg) -> bool {
     match db.pkg(pkg) {
         Ok(v) => {
             info!(
@@ -176,7 +176,7 @@ fn system_is_affected(db: &alpm::Db, pkg: &str, avg: &Avg) -> bool {
 }
 
 /// Given a list of package names, returns true when at least one is installed
-fn package_is_installed(db: &alpm::Db, packages: &[String]) -> bool {
+fn package_is_installed(db: Db, packages: &[String]) -> bool {
     for pkg in packages {
         match db.pkg(pkg.as_str()) {
             Ok(_) => {
@@ -192,7 +192,7 @@ fn package_is_installed(db: &alpm::Db, packages: &[String]) -> bool {
 /// Merge a list of `avg::AVG` into a single `avg::AVG` using major version as version
 fn merge_avgs(
     cves: &BTreeMap<String, Vec<Avg>>,
-    db: &alpm::Db,
+    db: Db,
     options: &Options,
 ) -> BTreeMap<String, Avg> {
     let mut avgs: BTreeMap<String, Avg> = BTreeMap::new();
@@ -239,12 +239,12 @@ fn merge_avgs(
         };
 
         if options.recursive >= 1 {
-            let mut packages = get_required_by(&db, &[pkg.clone()]);
+            let mut packages = get_required_by(db, &[pkg.clone()]);
             avg.required_by.append(&mut packages.clone());
 
             loop {
                 if !packages.is_empty() && options.recursive > 1 {
-                    packages = get_required_by(&db, &packages);
+                    packages = get_required_by(db, &packages);
                     avg.required_by.append(&mut packages.clone());
                 } else {
                     break;
