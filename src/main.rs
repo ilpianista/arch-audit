@@ -261,7 +261,7 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, Avg>) {
                 } else {
                     match options.format {
                         Some(ref f) => {
-                            print_avg_formatted(&mut *t, pkg, avg, v, options, f);
+                            print_avg_formatted(&mut *t, pkg, avg, Some(v), options, f);
                         }
                         None => {
                             print_avg_colored(&mut *t, pkg, avg, v, options);
@@ -284,7 +284,7 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, Avg>) {
                     } else {
                         match options.format {
                             Some(ref f) => {
-                                print_avg_formatted(&mut *t, pkg, avg, "", options, f);
+                                print_avg_formatted(&mut *t, pkg, avg, None, options, f);
                             }
                             None => {
                                 print_avg_colored(&mut *t, pkg, avg, "", options);
@@ -362,15 +362,15 @@ fn print_avg_formatted(
     t: &mut term::StdoutTerminal,
     pkg: &str,
     avg: &Avg,
-    version: &str,
+    version: Option<&str>,
     options: &Options,
     f: &str,
 ) {
     let mut chars = f.chars().peekable();
 
-    loop {
-        match chars.next() {
-            Some('%') => match chars.peek() {
+    while let Some(c) = chars.next() {
+        match c {
+            '%' => match chars.peek() {
                 Some('r') => {
                     write!(t, "{}", avg.required_by.iter().join(",").as_str())
                         .expect("term::write failed");
@@ -381,22 +381,22 @@ fn print_avg_formatted(
                     chars.next();
                 }
                 Some('c') => {
-                    write!(t, "{}", avg.issues.iter().join(",").as_str())
-                        .expect("term::write failed");
+                    write!(t, "{}", avg.issues.join(",")).expect("term::write failed");
                     chars.next();
                 }
                 Some('v') => {
-                    if !version.is_empty()
-                        && (avg.status == Status::Fixed
-                            || (avg.status == Status::Testing && options.show_testing))
-                    {
-                        write_with_colours(
-                            t,
-                            version,
-                            options,
-                            Some(term::color::GREEN),
-                            Some(term::Attr::Bold),
-                        );
+                    if let Some(version) = version {
+                        if avg.status == Status::Fixed
+                            || (avg.status == Status::Testing && options.show_testing)
+                        {
+                            write_with_colours(
+                                t,
+                                version,
+                                options,
+                                Some(term::color::GREEN),
+                                Some(term::Attr::Bold),
+                            );
+                        }
                     }
                     chars.next();
                 }
@@ -412,10 +412,9 @@ fn print_avg_formatted(
                 }
                 None => {}
             },
-            Some(x) => {
+            x => {
                 write!(t, "{}", x).expect("term::write failed");
             }
-            None => break,
         }
     }
 }
