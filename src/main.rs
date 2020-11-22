@@ -86,8 +86,7 @@ fn main() {
 
         if avg.status != Status::NotAffected {
             for pkg in &avg.packages {
-                let pkg = pkg.as_str();
-                cves.entry(pkg).or_insert_with(Vec::new).push(avg);
+                cves.entry(pkg.as_str()).or_insert_with(Vec::new).push(avg);
             }
         }
     }
@@ -97,10 +96,7 @@ fn main() {
     for (pkg, avgs) in cves {
         for avg in avgs.into_iter() {
             if system_is_affected(db, &pkg, avg) {
-                affected_avgs
-                    .entry(pkg.to_string())
-                    .or_insert_with(Vec::new)
-                    .push(avg.clone());
+                affected_avgs.entry(pkg).or_insert_with(Vec::new).push(avg);
             }
         }
     }
@@ -196,7 +192,7 @@ fn package_is_installed(db: Db, packages: &[String]) -> bool {
 }
 
 /// Merge a list of `avg::AVG` into a single `avg::AVG` using major version as version
-fn merge_avgs(cves: &BTreeMap<String, Vec<Avg>>) -> BTreeMap<String, Avg> {
+fn merge_avgs<'a>(cves: &BTreeMap<&'a str, Vec<&Avg>>) -> BTreeMap<&'a str, Avg> {
     let mut avgs = BTreeMap::new();
     for (pkg, list) in cves.iter() {
         let avg_fixed = list
@@ -219,7 +215,7 @@ fn merge_avgs(cves: &BTreeMap<String, Vec<Avg>>) -> BTreeMap<String, Avg> {
             ..Avg::default()
         };
 
-        avgs.insert(pkg.clone(), avg);
+        avgs.insert(*pkg, avg);
     }
 
     avgs
@@ -266,7 +262,7 @@ fn print_avg(options: &Options, t: &mut term::StdoutTerminal, pkg: &str, avg: &A
 }
 
 /// Print a list of `avg::AVG`
-fn print_avgs(options: &Options, avgs: &BTreeMap<String, Avg>, db: alpm::Db) {
+fn print_avgs(options: &Options, avgs: &BTreeMap<&str, Avg>, db: alpm::Db) {
     let fake_term = TermInfo {
         names: vec![],
         bools: HashMap::new(),
