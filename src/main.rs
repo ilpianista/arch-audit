@@ -91,7 +91,7 @@ fn main() {
         if avg.status != Status::NotAffected {
             for pkg in &avg.packages {
                 let pkg = pkg.as_str();
-                cves.entry(pkg).or_insert(Vec::new()).push(avg);
+                cves.entry(pkg).or_insert_with(Vec::new).push(avg);
             }
         }
     }
@@ -103,7 +103,7 @@ fn main() {
             if system_is_affected(&db, &pkg, avg) {
                 affected_avgs
                     .entry(pkg.to_string())
-                    .or_insert(Vec::new())
+                    .or_insert_with(Vec::new)
                     .push(avg.clone());
             }
         }
