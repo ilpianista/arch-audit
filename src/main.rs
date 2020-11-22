@@ -3,7 +3,6 @@ use alpm::{Alpm, Db, Version};
 use atty::Stream;
 use clap::{load_yaml, App};
 use curl::easy::Easy;
-use itertools::Itertools;
 use log::{debug, info};
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
@@ -44,8 +43,6 @@ struct Avg {
     severity: Severity,
     fixed: Option<String>,
     issues: Vec<String>,
-    #[serde(skip)]
-    required_by: Vec<String>,
 }
 
 fn main() {
@@ -108,8 +105,8 @@ fn main() {
         }
     }
 
-    let merged = merge_avgs(&affected_avgs, db, &options);
-    print_avgs(&options, &merged);
+    let merged = merge_avgs(&affected_avgs);
+    print_avgs(&options, &merged, db);
 }
 
 fn get_avg_json() -> String {
@@ -141,11 +138,25 @@ fn get_avg_json() -> String {
     avgs
 }
 
-fn get_required_by(db: Db, packages: &[String]) -> Vec<String> {
-    packages
+fn get_required_by(db: alpm::Db, pkg: &str) -> Vec<String> {
+    db.pkg(pkg)
+        .unwrap()
+        .required_by()
         .iter()
-        .flat_map(|pkg| db.pkg(pkg.as_str()).unwrap().required_by())
+        .map(|s| s.to_string())
         .collect()
+}
+
+fn get_required_by_recursive(db: alpm::Db, pkg: &str) -> Vec<String> {
+    let mut pkgs = Vec::new();
+    let new_pkgs = db.pkg(pkg).unwrap().required_by();
+
+    for pkg in &new_pkgs {
+        pkgs.extend(get_required_by_recursive(db, pkg))
+    }
+
+    pkgs.extend(new_pkgs);
+    pkgs
 }
 
 /// Given a package and an `avg::AVG`, returns true if the system is affected
@@ -185,11 +196,7 @@ fn package_is_installed(db: Db, packages: &[String]) -> bool {
 }
 
 /// Merge a list of `avg::AVG` into a single `avg::AVG` using major version as version
-fn merge_avgs(
-    cves: &BTreeMap<String, Vec<Avg>>,
-    db: alpm::Db,
-    options: &Options,
-) -> BTreeMap<String, Avg> {
+fn merge_avgs(cves: &BTreeMap<String, Vec<Avg>>) -> BTreeMap<String, Avg> {
     let mut avgs = BTreeMap::new();
     for (pkg, list) in cves.iter() {
         let avg_fixed = list
@@ -203,7 +210,7 @@ fn merge_avgs(
         let avg_issues = list.iter().flat_map(|l| l.issues.clone()).collect();
         let avg_types = list.iter().map(|a| a.kind.clone()).collect();
 
-        let mut avg = Avg {
+        let avg = Avg {
             issues: avg_issues,
             fixed: avg_fixed,
             severity: avg_severity,
@@ -212,28 +219,54 @@ fn merge_avgs(
             ..Avg::default()
         };
 
-        if options.recursive >= 1 {
-            let mut packages = get_required_by(db, &[pkg.to_string()]);
-            avg.required_by.append(&mut packages.clone());
-
-            loop {
-                if !packages.is_empty() && options.recursive > 1 {
-                    packages = get_required_by(db, &packages);
-                    avg.required_by.append(&mut packages.clone());
-                } else {
-                    break;
-                }
-            }
-        }
-
         avgs.insert(pkg.clone(), avg);
     }
 
     avgs
 }
 
+fn print_avg(options: &Options, t: &mut term::StdoutTerminal, pkg: &str, avg: &Avg, db: alpm::Db) {
+    match avg.fixed {
+        Some(ref v) if avg.status != enums::Status::Vulnerable => {
+            // Quiet option
+            if options.quiet >= 1 {
+                write_with_colours(t, pkg, options, Some(avg.severity.to_color()), None);
+
+                if options.quiet == 1 {
+                    write!(t, ">=").expect("term::write failed");
+                    write_with_colours(t, v, options, Some(term::color::GREEN), None);
+                }
+            } else {
+                match options.format {
+                    Some(ref f) => {
+                        print_avg_formatted(t, pkg, avg, Some(v), options, db, f);
+                    }
+                    None => {
+                        print_avg_colored(t, pkg, avg, Some(v), options, db);
+                    }
+                }
+            }
+
+            writeln!(t).expect("term::writeln failed");
+        }
+
+        _ if !options.upgradable_only => {
+            if options.quiet > 0 {
+                write_with_colours(t, pkg, options, Some(avg.severity.to_color()), None);
+            } else if let Some(ref f) = options.format {
+                print_avg_formatted(t, pkg, avg, None, options, db, f);
+            } else {
+                print_avg_colored(t, pkg, avg, None, options, db);
+            }
+
+            writeln!(t).expect("term::writeln failed");
+        }
+        _ => (),
+    }
+}
+
 /// Print a list of `avg::AVG`
-fn print_avgs(options: &Options, avgs: &BTreeMap<String, Avg>) {
+fn print_avgs(options: &Options, avgs: &BTreeMap<String, Avg>, db: alpm::Db) {
     let fake_term = TermInfo {
         names: vec![],
         bools: HashMap::new(),
@@ -248,54 +281,7 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, Avg>) {
     };
 
     for (pkg, avg) in avgs {
-        match avg.fixed {
-            Some(ref v) if avg.status != enums::Status::Vulnerable => {
-                // Quiet option
-                if options.quiet >= 1 {
-                    write_with_colours(&mut *t, pkg, options, Some(avg.severity.to_color()), None);
-
-                    if options.quiet == 1 {
-                        write!(t, ">=").expect("term::write failed");
-                        write_with_colours(&mut *t, v, options, Some(term::color::GREEN), None);
-                    }
-                } else {
-                    match options.format {
-                        Some(ref f) => {
-                            print_avg_formatted(&mut *t, pkg, avg, Some(v), options, f);
-                        }
-                        None => {
-                            print_avg_colored(&mut *t, pkg, avg, v, options);
-                        }
-                    }
-                }
-
-                writeln!(t).expect("term::writeln failed");
-            }
-            _ => {
-                if !options.upgradable_only {
-                    if options.quiet > 0 {
-                        write_with_colours(
-                            &mut *t,
-                            pkg,
-                            options,
-                            Some(avg.severity.to_color()),
-                            None,
-                        );
-                    } else {
-                        match options.format {
-                            Some(ref f) => {
-                                print_avg_formatted(&mut *t, pkg, avg, None, options, f);
-                            }
-                            None => {
-                                print_avg_colored(&mut *t, pkg, avg, "", options);
-                            }
-                        }
-                    }
-
-                    writeln!(t).expect("term::writeln failed");
-                }
-            }
-        }
+        print_avg(options, t.as_mut(), pkg, avg, db);
     }
 }
 
@@ -304,8 +290,9 @@ fn print_avg_colored(
     t: &mut term::StdoutTerminal,
     pkg: &str,
     avg: &Avg,
-    version: &str,
+    version: Option<&str>,
     options: &Options,
+    db: alpm::Db,
 ) {
     // Bold package
     write!(t, "Package ").expect("term::write failed");
@@ -316,21 +303,29 @@ fn print_avg_colored(
         write!(t, "({}). ", avg.issues.join(",")).expect("term::write failed");
     }
 
-    if !avg.required_by.is_empty() {
-        write!(t, "It's required by {}. ", avg.required_by.join(", ")).expect("term::write failed");
+    if options.recursive != 0 {
+        let required_by = if options.recursive == 1 {
+            get_required_by(db, pkg)
+        } else {
+            get_required_by_recursive(db, pkg)
+        };
+
+        if !required_by.is_empty() {
+            write!(t, "It's required by {}. ", required_by.join(", ")).expect("term::write failed");
+        }
     }
 
     // Colored severit
     write_with_colours(
         t,
-        avg.severity.to_string().as_str(),
+        &avg.severity.to_string(),
         options,
         Some(avg.severity.to_color()),
         None,
     );
     write!(t, "!").expect("term::write failed");
 
-    if !version.is_empty() {
+    if let Some(version) = version {
         if avg.status == enums::Status::Fixed {
             // Print: Update to {}!
             write!(t, " Update to at least ").expect("term::write failed");
@@ -364,6 +359,7 @@ fn print_avg_formatted(
     avg: &Avg,
     version: Option<&str>,
     options: &Options,
+    db: Db,
     f: &str,
 ) {
     let mut chars = f.chars().peekable();
@@ -372,8 +368,13 @@ fn print_avg_formatted(
         match c {
             '%' => match chars.peek() {
                 Some('r') => {
-                    write!(t, "{}", avg.required_by.iter().join(",").as_str())
-                        .expect("term::write failed");
+                    let required_by = if options.recursive == 1 {
+                        get_required_by(db, pkg)
+                    } else {
+                        get_required_by_recursive(db, pkg)
+                    };
+
+                    write!(t, "{}", required_by.join(",").as_str()).expect("term::write failed");
                     chars.next();
                 }
                 Some('n') => {
