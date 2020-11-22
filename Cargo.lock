@@ -35,10 +35,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf8dcb5b4bbaa28653b647d8c77bd4ed40183b48882e130c1f1ffb73de069fd7"
+
+[[package]]
 name = "arch-audit"
 version = "0.1.15"
 dependencies = [
  "alpm",
+ "anyhow",
  "atty",
  "clap",
  "curl",

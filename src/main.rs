@@ -1,5 +1,6 @@
 use crate::enums::{Color, Severity, Status};
 use alpm::{Alpm, Db, Version};
+use anyhow::{Context, Result};
 use atty::Stream;
 use clap::{load_yaml, App};
 use curl::easy::Easy;
@@ -57,23 +58,27 @@ struct Affected {
 }
 
 fn main() {
+    if let Err(err) = run() {
+        eprintln!("Error: {}", err);
+        for cause in err.chain().skip(1) {
+            eprintln!("Because: {}", cause);
+        }
+        exit(1);
+    }
+}
+
+fn run() -> Result<()> {
     env_logger::init();
 
     let yaml = load_yaml!("cli.yml");
     let args = App::from_yaml(yaml).get_matches();
+    let color = args.value_of("color").unwrap();
+    let color = color.parse::<Color>().unwrap();
+    let format = args.value_of("format").map(|v| v.to_string());
 
     let options = Options {
-        color: args
-            .value_of("color")
-            .unwrap()
-            .parse()
-            .expect("parse::<Color> failed"),
-        format: {
-            match args.value_of("format") {
-                Some(f) => Some(f.to_string()),
-                None => None,
-            }
-        },
+        color,
+        format,
         quiet: args.occurrences_of("quiet"),
         recursive: args.occurrences_of("recursive"),
         upgradable_only: args.is_present("upgradable"),
@@ -81,11 +86,12 @@ fn main() {
         show_cve: args.is_present("show-cve"),
     };
 
-    let avgs = get_avg_json();
-    let avgs: Avgs = serde_json::from_str(&avgs).expect("failed to parse json");
+    let avgs = get_avg_json().context("failed to fetch avgs")?;
+    let avgs: Avgs = serde_json::from_slice(&avgs).context("failed to parse json")?;
 
     let dbpath = args.value_of("dbpath").unwrap();
-    let pacman = Alpm::new("/", dbpath).expect("Alpm::new() failed");
+    let pacman = Alpm::new("/", dbpath)
+        .with_context(|| format!("failed to initial alpm: root='/' dbpath='{}'", dbpath))?;
     let db = pacman.localdb();
 
     let mut affected = BTreeMap::new();
@@ -125,36 +131,27 @@ fn main() {
         }
     }
 
-    print_all_affected(&options, &affected, db);
+    print_all_affected(&options, &affected, db)?;
+    Ok(())
 }
 
-fn get_avg_json() -> String {
-    let mut avgs = String::new();
+fn get_avg_json() -> Result<Vec<u8>> {
+    let mut avgs = Vec::new();
     info!("Downloading AVGs...");
     let avgs_url = format!("{}/issues/all.json", WEBSITE);
 
     let mut easy = Easy::new();
-    easy.fail_on_error(true)
-        .expect("curl::Easy::fail_on_error failed");
-    easy.follow_location(true)
-        .expect("curl::Easy::follow_location failed");
-    easy.url(&avgs_url).expect("curl::Easy::url failed");
+    easy.fail_on_error(true)?;
+    easy.follow_location(true)?;
+    easy.url(&avgs_url)?;
     let mut transfer = easy.transfer();
-    transfer
-        .write_function(|data| {
-            avgs.push_str(str::from_utf8(data).expect("str conversion failed"));
-            Ok(data.len())
-        })
-        .expect("write_function failed");
-    if transfer.perform().is_err() {
-        println!(
-            "Cannot fetch data from {}, please check your network connection!",
-            WEBSITE
-        );
-        exit(1)
-    }
+    transfer.write_function(|data| {
+        avgs.extend(data);
+        Ok(data.len())
+    })?;
+    transfer.perform()?;
     drop(transfer);
-    avgs
+    Ok(avgs)
 }
 
 fn get_required_by(db: Db, pkg: &str) -> Vec<String> {
@@ -214,7 +211,12 @@ fn system_is_affected(db: Db, pkg: &str, avg: &Avg) -> bool {
 }
 
 /// Print a single Affected
-fn print_affected(options: &Options, t: &mut term::StdoutTerminal, aff: &Affected, db: Db) {
+fn print_affected(
+    options: &Options,
+    t: &mut term::StdoutTerminal,
+    aff: &Affected,
+    db: Db,
+) -> Result<()> {
     match aff.fixed {
         Some(ref v) if aff.status != Status::Vulnerable => {
             // Quiet option
@@ -225,24 +227,24 @@ fn print_affected(options: &Options, t: &mut term::StdoutTerminal, aff: &Affecte
                     options,
                     Some(aff.severity.to_color()),
                     None,
-                );
+                )?;
 
                 if options.quiet == 1 {
-                    write!(t, ">=").expect("term::write failed");
-                    write_with_colours(t, v, options, Some(term::color::GREEN), None);
+                    write!(t, ">=")?;
+                    write_with_colours(t, v, options, Some(term::color::GREEN), None)?;
                 }
             } else {
                 match options.format {
                     Some(ref f) => {
-                        print_affected_formatted(t, aff, options, f, db);
+                        print_affected_formatted(t, aff, options, f, db)?;
                     }
                     None => {
-                        print_affected_colored(t, aff, options, db);
+                        print_affected_colored(t, aff, options, db)?;
                     }
                 }
             }
 
-            writeln!(t).expect("term::writeln failed");
+            writeln!(t)?;
         }
 
         _ if !options.upgradable_only => {
@@ -253,21 +255,26 @@ fn print_affected(options: &Options, t: &mut term::StdoutTerminal, aff: &Affecte
                     options,
                     Some(aff.severity.to_color()),
                     None,
-                );
+                )?;
             } else if let Some(ref f) = options.format {
-                print_affected_formatted(t, aff, options, f, db);
+                print_affected_formatted(t, aff, options, f, db)?;
             } else {
-                print_affected_colored(t, aff, options, db);
+                print_affected_colored(t, aff, options, db)?;
             }
 
-            writeln!(t).expect("term::writeln failed");
+            writeln!(t)?;
         }
         _ => (),
     }
+    Ok(())
 }
 
 // Print a list of Affected
-fn print_all_affected(options: &Options, affected: &BTreeMap<&str, Affected>, db: Db) {
+fn print_all_affected(
+    options: &Options,
+    affected: &BTreeMap<&str, Affected>,
+    db: Db,
+) -> Result<()> {
     let fake_term = TermInfo {
         names: vec![],
         bools: HashMap::new(),
@@ -282,19 +289,26 @@ fn print_all_affected(options: &Options, affected: &BTreeMap<&str, Affected>, db
     };
 
     for aff in affected.values() {
-        print_affected(options, t.as_mut(), aff, db);
+        print_affected(options, t.as_mut(), aff, db)?;
     }
+
+    Ok(())
 }
 
 /// Prints "Package {pkg} is affected by {issues}. {severity}!" colored
-fn print_affected_colored(t: &mut term::StdoutTerminal, aff: &Affected, options: &Options, db: Db) {
+fn print_affected_colored(
+    t: &mut term::StdoutTerminal,
+    aff: &Affected,
+    options: &Options,
+    db: Db,
+) -> Result<()> {
     // Bold package
-    write!(t, "Package ").expect("term::write failed");
-    write_with_colours(t, &aff.package, options, None, Some(term::Attr::Bold));
+    write!(t, "Package ")?;
+    write_with_colours(t, &aff.package, options, None, Some(term::Attr::Bold))?;
     // Normal "is affected by {issues}"
-    write!(t, " is affected by {}. ", aff.kind.join(", ")).expect("term::write failed");
+    write!(t, " is affected by {}. ", aff.kind.join(", "))?;
     if options.show_cve {
-        write!(t, "({}). ", aff.cves.join(",")).expect("term::write failed");
+        write!(t, "({}). ", aff.cves.join(","))?;
     }
 
     if options.recursive != 0 {
@@ -305,7 +319,7 @@ fn print_affected_colored(t: &mut term::StdoutTerminal, aff: &Affected, options:
         };
 
         if !required_by.is_empty() {
-            write!(t, "It's required by {}. ", required_by.join(", ")).expect("term::write failed");
+            write!(t, "It's required by {}. ", required_by.join(", "))?;
         }
     }
 
@@ -316,22 +330,23 @@ fn print_affected_colored(t: &mut term::StdoutTerminal, aff: &Affected, options:
         options,
         Some(aff.severity.to_color()),
         None,
-    );
-    write!(t, "!").expect("term::write failed");
+    )?;
+    write!(t, "!")?;
 
     if let Some(ref version) = aff.fixed {
         if aff.status == Status::Fixed {
             // Print: Update to {}!
-            write!(t, " Update to at least ").expect("term::write failed");
-            write_with_colours(t, version, options, Some(color::GREEN), Some(Attr::Bold));
-            write!(t, "!").expect("term::write failed");
+            write!(t, " Update to at least ")?;
+            write_with_colours(t, version, options, Some(color::GREEN), Some(Attr::Bold))?;
+            write!(t, "!")?;
         } else if aff.status == Status::Testing && options.show_testing {
             // Print: Update to {} from the testing repos!"
-            write!(t, " Update to at least").expect("term::write failed");
-            write_with_colours(t, version, options, Some(color::GREEN), Some(Attr::Bold));
-            write!(t, " from the testing repos!").expect("term::write failed");
+            write!(t, " Update to at least")?;
+            write_with_colours(t, version, options, Some(color::GREEN), Some(Attr::Bold))?;
+            write!(t, " from the testing repos!")?;
         }
     }
+    Ok(())
 }
 
 /// Prints output formatted as the user wants
@@ -341,14 +356,14 @@ fn print_affected_formatted(
     options: &Options,
     f: &str,
     db: Db,
-) {
+) -> Result<()> {
     let mut chars = f.chars().peekable();
 
     while let Some(c) = chars.next() {
         match c {
             '%' => match chars.peek() {
                 Some('%') => {
-                    write!(t, "%").expect("term::write failed");
+                    write!(t, "%")?;
                     chars.next();
                 }
                 Some('r') => {
@@ -356,8 +371,7 @@ fn print_affected_formatted(
                         t,
                         "{}",
                         get_required_by(db, &aff.package).join(",").as_str()
-                    )
-                    .expect("term::write failed");
+                    )?;
                     chars.next();
                 }
                 Some('n') => {
@@ -367,11 +381,11 @@ fn print_affected_formatted(
                         options,
                         Some(aff.severity.to_color()),
                         None,
-                    );
+                    )?;
                     chars.next();
                 }
                 Some('c') => {
-                    write!(t, "{}", aff.cves.join(",")).expect("term::write failed");
+                    write!(t, "{}", aff.cves.join(","))?;
                     chars.next();
                 }
                 Some('v') => {
@@ -385,7 +399,7 @@ fn print_affected_formatted(
                                 options,
                                 Some(color::GREEN),
                                 Some(Attr::Bold),
-                            );
+                            )?;
                         }
                     }
                     chars.next();
@@ -397,12 +411,12 @@ fn print_affected_formatted(
                         options,
                         Some(aff.severity.to_color()),
                         None,
-                    );
+                    )?;
                     chars.next();
                 }
                 Some('t') => {
                     if !aff.kind.is_empty() {
-                        write!(t, "{}", aff.kind.join(", ")).expect("term::write failed");
+                        write!(t, "{}", aff.kind.join(", "))?;
                     }
                     chars.next();
                 }
@@ -413,10 +427,11 @@ fn print_affected_formatted(
                 None => {}
             },
             x => {
-                write!(t, "{}", x).expect("term::write failed");
+                write!(t, "{}", x)?;
             }
         }
     }
+    Ok(())
 }
 
 fn write_with_colours(
@@ -425,7 +440,7 @@ fn write_with_colours(
     options: &Options,
     color: Option<term::color::Color>,
     attribute: Option<term::Attr>,
-) {
+) -> Result<()> {
     let show_colors = match options.color {
         Color::Always => true,
         Color::Never => false,
@@ -434,18 +449,20 @@ fn write_with_colours(
 
     if show_colors {
         if let Some(c) = color {
-            t.fg(c).expect("term::fg failed");
+            t.fg(c)?;
         }
         if let Some(a) = attribute {
-            t.attr(a).expect("term::attr failed");
+            t.attr(a)?;
         }
     }
 
-    write!(t, "{}", text).expect("term::write failed");
+    write!(t, "{}", text)?;
 
     if show_colors {
-        t.reset().expect("term::stdout failed");
+        t.reset()?;
     }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -455,13 +472,14 @@ mod test {
     #[cfg(test)]
     mod test {
         use super::*;
+        use anyhow::Result;
 
         const ROOT_DIR: &str = "/";
         const DB_PATH: &str = "/var/lib/pacman";
 
         #[test]
-        fn test_system_is_affected() {
-            let pacman = alpm::Alpm::new(ROOT_DIR, DB_PATH).expect("Alpm::new failed");
+        fn test_system_is_affected() -> Result<()> {
+            let pacman = alpm::Alpm::new(ROOT_DIR, DB_PATH)?;
             let db = pacman.localdb();
 
             let avg1 = Avg {
@@ -485,6 +503,7 @@ mod test {
             };
 
             assert!(system_is_affected(db, "filesystem", &avg2));
+            Ok(())
         }
     }
 }
