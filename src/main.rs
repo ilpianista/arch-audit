@@ -150,29 +150,25 @@ fn get_required_by(db: Db, packages: &[String]) -> Vec<String> {
 }
 
 /// Given a package and an `avg::AVG`, returns true if the system is affected
-fn system_is_affected(db: Db, pkg: &str, avg: &Avg) -> bool {
-    match db.pkg(pkg) {
-        Ok(v) => {
-            info!(
-                "Found installed version {} for package {}",
-                v.version(),
-                pkg
-            );
-            match avg.fixed {
-                Some(ref version) => {
-                    info!("Comparing with fixed version {}", version);
-                    let cmp = alpm::vercmp(v.version().to_string(), version.clone());
-                    if let Ordering::Less = cmp {
-                        return true;
-                    }
-                }
-                None => return true,
-            };
-        }
-        Err(_) => debug!("Package {} not installed", pkg),
-    }
+fn system_is_affected(db: alpm::Db, pkg: &str, avg: &Avg) -> bool {
+    let pkg = if let Ok(pkg) = db.pkg(pkg) {
+        info!(
+            "Found installed version {} for package {}",
+            pkg.version(),
+            pkg.name(),
+        );
+        pkg
+    } else {
+        debug!("Package {} not installed", pkg);
+        return false;
+    };
 
-    false
+    if let Some(ref fixed) = avg.fixed {
+        info!("Comparing with fixed version {}", fixed);
+        pkg.version() < fixed
+    } else {
+        true
+    }
 }
 
 /// Given a list of package names, returns true when at least one is installed
