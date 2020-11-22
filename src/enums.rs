@@ -1,7 +1,8 @@
+use serde::Deserialize;
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Deserialize)]
 pub enum Severity {
     Unknown,
     Low,
@@ -10,17 +11,9 @@ pub enum Severity {
     Critical,
 }
 
-impl FromStr for Severity {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Severity, ()> {
-        match s {
-            "Low" => Ok(Severity::Low),
-            "Medium" => Ok(Severity::Medium),
-            "High" => Ok(Severity::High),
-            "Critical" => Ok(Severity::Critical),
-            _ => Ok(Severity::Unknown),
-        }
+impl Default for Severity {
+    fn default() -> Self {
+        Severity::Unknown
     }
 }
 
@@ -48,26 +41,19 @@ impl Severity {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Deserialize)]
 pub enum Status {
     Unknown,
+    #[serde(rename = "Not affected")]
     NotAffected,
     Vulnerable,
     Fixed,
     Testing,
 }
 
-impl FromStr for Status {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Status, ()> {
-        match s {
-            "Vulnerable" => Ok(Status::Vulnerable),
-            "Testing" => Ok(Status::Testing),
-            "Fixed" => Ok(Status::Fixed),
-            "Not affected" => Ok(Status::NotAffected),
-            _ => Ok(Status::Unknown),
-        }
+impl Default for Status {
+    fn default() -> Self {
+        Status::Unknown
     }
 }
 
