@@ -1,13 +1,12 @@
-use crate::enums::Status;
+use crate::enums::{Severity, Status};
 use alpm::Alpm;
 use atty::Stream;
 use clap::{load_yaml, App};
 use curl::easy::Easy;
 use itertools::Itertools;
 use log::{debug, info};
-use serde_json::Value;
+use serde::Deserialize;
 use std::cmp::Ordering;
-use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::default::Default;
 use std::io;
@@ -16,7 +15,6 @@ use std::str;
 use term::terminfo::TermInfo;
 use term::{StdoutTerminal, TerminfoTerminal};
 
-mod avg;
 mod enums;
 
 const WEBSITE: &str = "https://security.archlinux.org";
@@ -30,6 +28,25 @@ struct Options {
     upgradable_only: bool,
     show_testing: bool,
     show_cve: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(transparent)]
+struct Avgs {
+    avgs: Vec<Avg>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+struct Avg {
+    packages: Vec<String>,
+    status: Status,
+    #[serde(rename = "type")]
+    kind: String,
+    severity: Severity,
+    fixed: Option<String>,
+    issues: Vec<String>,
+    #[serde(skip)]
+    required_by: Vec<String>,
 }
 
 fn main() {
@@ -57,85 +74,72 @@ fn main() {
         show_cve: args.is_present("show-cve"),
     };
 
-    let mut avgs = String::new();
-    {
-        info!("Downloading AVGs...");
-        let avgs_url = format!("{}/issues/all.json", WEBSITE);
-
-        let mut easy = Easy::new();
-        easy.fail_on_error(true)
-            .expect("curl::Easy::fail_on_error failed");
-        easy.follow_location(true)
-            .expect("curl::Easy::follow_location failed");
-        easy.url(&avgs_url).expect("curl::Easy::url failed");
-        let mut transfer = easy.transfer();
-        transfer
-            .write_function(|data| {
-                avgs.push_str(str::from_utf8(data).expect("str conversion failed"));
-                Ok(data.len())
-            })
-            .expect("write_function failed");
-        match transfer.perform() {
-            Ok(_) => {}
-            Err(_) => {
-                println!(
-                    "Cannot fetch data from {}, please check your network connection!",
-                    WEBSITE
-                );
-                exit(1)
-            }
-        };
-    }
+    let avgs = get_avg_json();
+    let avgs: Avgs = serde_json::from_str(&avgs).expect("failed to parse json");
 
     let dbpath = args.value_of("dbpath").unwrap();
     let pacman = Alpm::new("/", dbpath).expect("Alpm::new() failed");
     let db = pacman.localdb();
 
-    let mut cves: BTreeMap<String, Vec<_>> = BTreeMap::new();
-    {
-        let json: Value = serde_json::from_str(&avgs).expect("serde_json::from_str failed");
+    let mut cves = BTreeMap::new();
 
-        for avg in json.as_array().expect("Value::as_array failed") {
-            let packages = avg["packages"]
-                .as_array()
-                .expect("Value::as_array failed")
-                .iter()
-                .map(|s| s.as_str().expect("Value::as_str failed").to_string())
-                .collect::<Vec<_>>();
+    for avg in &avgs.avgs {
+        if !package_is_installed(&db, &avg.packages) {
+            continue;
+        }
 
-            if !package_is_installed(&db, &packages) {
-                continue;
-            }
-
-            let info = to_avg(avg);
-
-            if info.status != enums::Status::NotAffected {
-                for p in packages {
-                    match cves.entry(p) {
-                        Occupied(c) => c.into_mut(),
-                        Vacant(c) => c.insert(vec![]),
-                    }
-                    .push(info.clone());
-                }
+        if avg.status != Status::NotAffected {
+            for pkg in &avg.packages {
+                let pkg = pkg.as_str();
+                cves.entry(pkg).or_insert(Vec::new()).push(avg);
             }
         }
     }
 
-    let mut affected_avgs: BTreeMap<String, Vec<_>> = BTreeMap::new();
+    let mut affected_avgs = BTreeMap::new();
+
     for (pkg, avgs) in cves {
-        for avg in &avgs {
+        for avg in avgs.into_iter() {
             if system_is_affected(&db, &pkg, avg) {
-                match affected_avgs.entry(pkg.clone()) {
-                    Occupied(c) => c.into_mut(),
-                    Vacant(c) => c.insert(vec![]),
-                }
-                .push(avg.clone());
+                affected_avgs
+                    .entry(pkg.to_string())
+                    .or_insert(Vec::new())
+                    .push(avg.clone());
             }
         }
     }
 
     let merged = merge_avgs(&affected_avgs, &db, &options);
     print_avgs(&options, &merged);
+}
+
+fn get_avg_json() -> String {
+    let mut avgs = String::new();
+    info!("Downloading AVGs...");
+    let avgs_url = format!("{}/issues/all.json", WEBSITE);
+
+    let mut easy = Easy::new();
+    easy.fail_on_error(true)
+        .expect("curl::Easy::fail_on_error failed");
+    easy.follow_location(true)
+        .expect("curl::Easy::follow_location failed");
+    easy.url(&avgs_url).expect("curl::Easy::url failed");
+    let mut transfer = easy.transfer();
+    transfer
+        .write_function(|data| {
+            avgs.push_str(str::from_utf8(data).expect("str conversion failed"));
+            Ok(data.len())
+        })
+        .expect("write_function failed");
+    if transfer.perform().is_err() {
+        println!(
+            "Cannot fetch data from {}, please check your network connection!",
+            WEBSITE
+        );
+        exit(1)
+    }
+    drop(transfer);
+    avgs
 }
 
 fn get_required_by(db: &alpm::Db, packages: &[String]) -> Vec<String> {
@@ -145,41 +149,8 @@ fn get_required_by(db: &alpm::Db, packages: &[String]) -> Vec<String> {
         .collect()
 }
 
-/// Converts a JSON to an `avg::AVG`
-fn to_avg(data: &Value) -> avg::AVG {
-    avg::AVG {
-        issues: data["issues"]
-            .as_array()
-            .expect("Value::as_array failed")
-            .iter()
-            .map(|s| s.as_str().expect("Value::as_str failed").to_string())
-            .collect(),
-        fixed: match data["fixed"].as_str() {
-            Some(s) => Some(s.to_string()),
-            None => None,
-        },
-        severity: data["severity"]
-            .as_str()
-            .expect("Value::as_str failed")
-            .to_string()
-            .parse::<enums::Severity>()
-            .expect("parse::<Severity> failed"),
-        status: data["status"]
-            .as_str()
-            .expect("Value::as_str failed")
-            .to_string()
-            .parse::<enums::Status>()
-            .expect("parse::<Status> failed"),
-        required_by: vec![],
-        avg_types: vec![data["type"]
-            .as_str()
-            .expect("Value::as_str failed")
-            .to_string()],
-    }
-}
-
 /// Given a package and an `avg::AVG`, returns true if the system is affected
-fn system_is_affected(db: &alpm::Db, pkg: &str, avg: &avg::AVG) -> bool {
+fn system_is_affected(db: &alpm::Db, pkg: &str, avg: &Avg) -> bool {
     match db.pkg(pkg) {
         Ok(v) => {
             info!(
@@ -220,11 +191,11 @@ fn package_is_installed(db: &alpm::Db, packages: &[String]) -> bool {
 
 /// Merge a list of `avg::AVG` into a single `avg::AVG` using major version as version
 fn merge_avgs(
-    cves: &BTreeMap<String, Vec<avg::AVG>>,
+    cves: &BTreeMap<String, Vec<Avg>>,
     db: &alpm::Db,
     options: &Options,
-) -> BTreeMap<String, avg::AVG> {
-    let mut avgs: BTreeMap<String, avg::AVG> = BTreeMap::new();
+) -> BTreeMap<String, Avg> {
+    let mut avgs: BTreeMap<String, Avg> = BTreeMap::new();
     for (pkg, list) in cves.iter() {
         let mut avg_issues = vec![];
         let mut avg_fixed: Option<String> = None;
@@ -254,16 +225,17 @@ fn merge_avgs(
             if a.status > avg_status {
                 avg_status = a.status;
             }
-            avg_types.extend(a.avg_types.iter().cloned());
+            avg_types.insert(a.kind.clone());
         }
 
-        let mut avg = avg::AVG {
+        let mut avg = Avg {
             issues: avg_issues,
             fixed: avg_fixed,
             severity: avg_severity,
             status: avg_status,
             required_by: Vec::new(),
-            avg_types: avg_types.into_iter().collect(),
+            kind: avg_types.into_iter().join(", "),
+            packages: Vec::new(),
         };
 
         if options.recursive >= 1 {
@@ -287,7 +259,7 @@ fn merge_avgs(
 }
 
 /// Print a list of `avg::AVG`
-fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
+fn print_avgs(options: &Options, avgs: &BTreeMap<String, Avg>) {
     let fake_term = TermInfo {
         names: vec![],
         bools: HashMap::new(),
@@ -357,7 +329,7 @@ fn print_avgs(options: &Options, avgs: &BTreeMap<String, avg::AVG>) {
 fn print_avg_colored(
     t: &mut term::StdoutTerminal,
     pkg: &str,
-    avg: &avg::AVG,
+    avg: &Avg,
     version: &str,
     options: &Options,
 ) {
@@ -365,7 +337,7 @@ fn print_avg_colored(
     write!(t, "Package ").expect("term::write failed");
     write_with_colours(t, pkg, options, None, Some(term::Attr::Bold));
     // Normal "is affected by {issues}"
-    write!(t, " is affected by {}. ", avg.avg_types.iter().join(", ")).expect("term::write failed");
+    write!(t, " is affected by {}. ", avg.kind).expect("term::write failed");
     if options.show_cve {
         write!(t, "({}). ", avg.issues.join(",")).expect("term::write failed");
     }
@@ -415,7 +387,7 @@ fn print_avg_colored(
 fn print_avg_formatted(
     t: &mut term::StdoutTerminal,
     pkg: &str,
-    avg: &avg::AVG,
+    avg: &Avg,
     version: &str,
     options: &Options,
     f: &str,
@@ -455,9 +427,8 @@ fn print_avg_formatted(
                     chars.next();
                 }
                 Some('t') => {
-                    if !avg.avg_types.is_empty() {
-                        write!(t, "{}", avg.avg_types.iter().join(", "))
-                            .expect("term::write failed");
+                    if !avg.kind.is_empty() {
+                        write!(t, "{}", avg.kind).expect("term::write failed");
                     }
                     chars.next();
                 }
