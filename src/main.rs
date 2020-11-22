@@ -542,7 +542,7 @@ fn print_avg_colored(
     if !version.is_empty() {
         if avg.status == enums::Status::Fixed {
             // Print: Update to {}!
-            write!(t, " Update to ").expect("term::write failed");
+            write!(t, " Update to at least ").expect("term::write failed");
             write_with_colours(
                 t,
                 version,
@@ -553,7 +553,7 @@ fn print_avg_colored(
             write!(t, "!").expect("term::write failed");
         } else if avg.status == enums::Status::Testing && options.show_testing {
             // Print: Update to {} from the testing repos!"
-            write!(t, " Update to ").expect("term::write failed");
+            write!(t, " Update to at least ").expect("term::write failed");
             write_with_colours(
                 t,
                 version,
