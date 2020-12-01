@@ -390,6 +390,16 @@ fn print_affected_formatted(
                     }
                     chars.next();
                 }
+                Some('s') => {
+                    write_with_colours(
+                        t,
+                        &aff.severity.to_string(),
+                        options,
+                        Some(aff.severity.to_color()),
+                        None,
+                    );
+                    chars.next();
+                }
                 Some('t') => {
                     if !aff.kind.is_empty() {
                         write!(t, "{}", aff.kind.join(", ")).expect("term::write failed");
