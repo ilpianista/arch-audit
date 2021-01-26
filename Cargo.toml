@@ -6,6 +6,7 @@ description = "A utility like pkg-audit for Arch Linux based on Arch Security Te
 repository = "https://gitlab.com/ilpianista/arch-audit"
 license = "MIT"
 readme = "README.md"
+categories = ["command-line-utilities"]
 keywords = ["archlinux", "security"]
 edition = "2018"
 
