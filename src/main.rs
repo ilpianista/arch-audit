@@ -490,178 +490,173 @@ fn write_with_colours(
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
+    use std::fs::{create_dir, File};
+    use std::io::Write;
+    use tempfile::TempDir;
+    use tempfile::Builder as TempfileBuilder;
+    use anyhow::{Result, Context};
+    use alpm::Alpm;
+    use crate::{enums, Options};
 
-    #[cfg(test)]
-    mod test {
-        use super::*;
-        use std::fs::{create_dir, File};
-        use std::io::Write;
-        use tempfile::TempDir;
-        use tempfile::Builder as TempfileBuilder;
-        use anyhow::{Result, Context};
-        use alpm::Alpm;
-        use crate::{enums, Options};
+    struct Fixture;
 
-        struct Fixture;
+    impl Fixture {
+        fn alpm(packages: Vec<&str>) -> Result<(TempDir, Alpm)> {
+            let tempdir = TempfileBuilder::new().prefix("arch-audit-test-").tempdir()?;
 
-        impl Fixture {
-            fn alpm(packages: Vec<&str>) -> Result<(TempDir, Alpm)> {
-                let tempdir = TempfileBuilder::new().prefix("arch-audit-test-").tempdir()?;
+            let local_path = tempdir.path().join("local");
+            create_dir(local_path.clone())?;
 
-                let local_path = tempdir.path().join("local");
-                create_dir(local_path.clone())?;
+            let alpm_db_version_path = local_path.join("ALPM_DB_VERSION");
+            let mut alpm_db_version_path = File::create(alpm_db_version_path)?;
+            writeln!(alpm_db_version_path, "9")?;
 
-                let alpm_db_version_path = local_path.join("ALPM_DB_VERSION");
-                let mut alpm_db_version_path = File::create(alpm_db_version_path)?;
-                writeln!(alpm_db_version_path, "9")?;
-
-                for package in packages {
-                    let file_path = local_path.join(package);
-                    create_dir(file_path)?;
-                }
-
-                let path = tempdir.path().to_str().context("Failed to convert tempdir path to str")?;
-                let alpm = Alpm::new(path, path)?;
-                Ok((tempdir, alpm))
+            for package in packages {
+                let file_path = local_path.join(package);
+                create_dir(file_path)?;
             }
 
-            fn options(upgradable_only: bool, show_testing: bool) -> Options {
-                Options {
-                    color: enums::Color::Never,
-                    format: None,
-                    quiet: 0,
-                    recursive: 0,
-                    upgradable_only,
-                    show_testing,
-                    show_cve: false,
-                }
+            let path = tempdir.path().to_str().context("Failed to convert tempdir path to str")?;
+            let alpm = Alpm::new(path, path)?;
+            Ok((tempdir, alpm))
+        }
+
+        fn options(upgradable_only: bool, show_testing: bool) -> Options {
+            Options {
+                color: enums::Color::Never,
+                format: None,
+                quiet: 0,
+                recursive: 0,
+                upgradable_only,
+                show_testing,
+                show_cve: false,
             }
         }
+    }
 
-        #[test]
-        fn test_system_is_affected() -> Result<()> {
-            let (_tempdir, alpm) = Fixture::alpm(vec!["filesystem-2000.0.0-1"])?;
-            let db = alpm.localdb();
+    #[test]
+    fn test_system_is_affected() -> Result<()> {
+        let (_tempdir, alpm) = Fixture::alpm(vec!["filesystem-2000.0.0-1"])?;
+        let db = alpm.localdb();
 
-            let avg = Avg {
-                issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
-                fixed: Some("3009.0.0".to_string()),
-                severity: enums::Severity::Unknown,
-                status: enums::Status::Unknown,
-                packages: Vec::new(),
-                kind: String::new(),
-            };
+        let avg = Avg {
+            issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+            fixed: Some("3009.0.0".to_string()),
+            severity: enums::Severity::Unknown,
+            status: enums::Status::Unknown,
+            packages: Vec::new(),
+            kind: String::new(),
+        };
 
-            assert!(system_is_affected(db, "filesystem", &avg));
-            Ok(())
-        }
+        assert!(system_is_affected(db, "filesystem", &avg));
+        Ok(())
+    }
 
-        #[test]
-        fn test_system_is_affected_already_fixed() -> Result<()> {
-            let (_tempdir, alpm) = Fixture::alpm(vec!["filesystem-2000.0.0-1"])?;
-            let db = alpm.localdb();
+    #[test]
+    fn test_system_is_affected_already_fixed() -> Result<()> {
+        let (_tempdir, alpm) = Fixture::alpm(vec!["filesystem-2000.0.0-1"])?;
+        let db = alpm.localdb();
 
-            let avg = Avg {
-                issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
-                fixed: Some("2000.0.0-1".to_string()),
-                severity: enums::Severity::Unknown,
-                status: enums::Status::Unknown,
-                packages: Vec::new(),
-                kind: String::new(),
-            };
+        let avg = Avg {
+            issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+            fixed: Some("2000.0.0-1".to_string()),
+            severity: enums::Severity::Unknown,
+            status: enums::Status::Unknown,
+            packages: Vec::new(),
+            kind: String::new(),
+        };
 
-            assert_eq!(false, system_is_affected(db, "filesystem", &avg));
-            Ok(())
-        }
+        assert_eq!(false, system_is_affected(db, "filesystem", &avg));
+        Ok(())
+    }
 
-        #[test]
-        fn test_system_is_affected_package_not_instaled() -> Result<()> {
-            let (_tempdir, alpm) = Fixture::alpm(vec![])?;
-            let db = alpm.localdb();
+    #[test]
+    fn test_system_is_affected_package_not_instaled() -> Result<()> {
+        let (_tempdir, alpm) = Fixture::alpm(vec![])?;
+        let db = alpm.localdb();
 
-            let avg = Avg {
-                issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
-                fixed: Some("3000.0.0".to_string()),
-                severity: enums::Severity::Unknown,
-                status: enums::Status::Unknown,
-                packages: Vec::new(),
-                kind: String::new(),
-            };
+        let avg = Avg {
+            issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+            fixed: Some("3000.0.0".to_string()),
+            severity: enums::Severity::Unknown,
+            status: enums::Status::Unknown,
+            packages: Vec::new(),
+            kind: String::new(),
+        };
 
-            assert_eq!(false, system_is_affected(db, "doesnotexit", &avg));
-            Ok(())
-        }
+        assert_eq!(false, system_is_affected(db, "doesnotexit", &avg));
+        Ok(())
+    }
 
-        #[test]
-        fn test_system_is_affected_same_version_installed() -> Result<()> {
-            let (_tempdir, alpm) = Fixture::alpm(vec!["filesystem-2021.01.19-1"])?;
-            let db = alpm.localdb();
+    #[test]
+    fn test_system_is_affected_same_version_installed() -> Result<()> {
+        let (_tempdir, alpm) = Fixture::alpm(vec!["filesystem-2021.01.19-1"])?;
+        let db = alpm.localdb();
 
-            let avg = Avg {
-                issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
-                fixed: Some("2021.01.19-1".to_string()),
-                severity: enums::Severity::Unknown,
-                status: enums::Status::Unknown,
-                packages: Vec::new(),
-                kind: String::new(),
-            };
+        let avg = Avg {
+            issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
+            fixed: Some("2021.01.19-1".to_string()),
+            severity: enums::Severity::Unknown,
+            status: enums::Status::Unknown,
+            packages: Vec::new(),
+            kind: String::new(),
+        };
 
-            assert_eq!(false, system_is_affected(db, "doesnotexit", &avg));
-            Ok(())
-        }
+        assert_eq!(false, system_is_affected(db, "doesnotexit", &avg));
+        Ok(())
+    }
 
-        #[test]
-        fn test_is_status_shown_unknown() {
-            assert!(is_status_shown(Status::Unknown, &Fixture::options(false, false)));
-            assert!(is_status_shown(Status::Unknown, &Fixture::options(false, true)));
-        }
+    #[test]
+    fn test_is_status_shown_unknown() {
+        assert!(is_status_shown(Status::Unknown, &Fixture::options(false, false)));
+        assert!(is_status_shown(Status::Unknown, &Fixture::options(false, true)));
+    }
 
-        #[test]
-        fn test_is_status_shown_unknown_upgradable_only() {
-            assert_eq!(false, is_status_shown(Status::Unknown, &Fixture::options(true, false)));
-            assert_eq!(false, is_status_shown(Status::Unknown, &Fixture::options(true, true)));
-        }
+    #[test]
+    fn test_is_status_shown_unknown_upgradable_only() {
+        assert_eq!(false, is_status_shown(Status::Unknown, &Fixture::options(true, false)));
+        assert_eq!(false, is_status_shown(Status::Unknown, &Fixture::options(true, true)));
+    }
 
-        #[test]
-        fn test_is_status_shown_not_affected() {
-            assert_eq!(false, is_status_shown(Status::NotAffected, &Fixture::options(false, false)));
-            assert_eq!(false, is_status_shown(Status::NotAffected, &Fixture::options(false, true)));
-            assert_eq!(false, is_status_shown(Status::NotAffected, &Fixture::options(true, false)));
-            assert_eq!(false, is_status_shown(Status::NotAffected, &Fixture::options(true, true)));
-        }
+    #[test]
+    fn test_is_status_shown_not_affected() {
+        assert_eq!(false, is_status_shown(Status::NotAffected, &Fixture::options(false, false)));
+        assert_eq!(false, is_status_shown(Status::NotAffected, &Fixture::options(false, true)));
+        assert_eq!(false, is_status_shown(Status::NotAffected, &Fixture::options(true, false)));
+        assert_eq!(false, is_status_shown(Status::NotAffected, &Fixture::options(true, true)));
+    }
 
-        #[test]
-        fn test_is_status_shown_vulnerable() {
-            assert!(is_status_shown(Status::Vulnerable, &Fixture::options(false, false)));
-            assert!(is_status_shown(Status::Vulnerable, &Fixture::options(false, true)));
-        }
+    #[test]
+    fn test_is_status_shown_vulnerable() {
+        assert!(is_status_shown(Status::Vulnerable, &Fixture::options(false, false)));
+        assert!(is_status_shown(Status::Vulnerable, &Fixture::options(false, true)));
+    }
 
-        #[test]
-        fn test_is_status_shown_vulnerable_upgradable_only() {
-            assert_eq!(false, is_status_shown(Status::Vulnerable, &Fixture::options(true, false)));
-            assert_eq!(false, is_status_shown(Status::Vulnerable, &Fixture::options(true, true)));
-        }
+    #[test]
+    fn test_is_status_shown_vulnerable_upgradable_only() {
+        assert_eq!(false, is_status_shown(Status::Vulnerable, &Fixture::options(true, false)));
+        assert_eq!(false, is_status_shown(Status::Vulnerable, &Fixture::options(true, true)));
+    }
 
-        #[test]
-        fn test_is_status_shown_fixed() {
-            assert!(is_status_shown(Status::Fixed, &Fixture::options(false, false)));
-            assert!(is_status_shown(Status::Fixed, &Fixture::options(false, true)));
-            assert!(is_status_shown(Status::Fixed, &Fixture::options(true, false)));
-            assert!(is_status_shown(Status::Fixed, &Fixture::options(true, true)));
-        }
+    #[test]
+    fn test_is_status_shown_fixed() {
+        assert!(is_status_shown(Status::Fixed, &Fixture::options(false, false)));
+        assert!(is_status_shown(Status::Fixed, &Fixture::options(false, true)));
+        assert!(is_status_shown(Status::Fixed, &Fixture::options(true, false)));
+        assert!(is_status_shown(Status::Fixed, &Fixture::options(true, true)));
+    }
 
-        #[test]
-        fn test_is_status_shown_no_testing() {
-            assert_eq!(false, is_status_shown(Status::Testing, &Fixture::options(false, false)));
-            assert_eq!(false, is_status_shown(Status::Testing, &Fixture::options(true, false)));
-        }
+    #[test]
+    fn test_is_status_shown_no_testing() {
+        assert_eq!(false, is_status_shown(Status::Testing, &Fixture::options(false, false)));
+        assert_eq!(false, is_status_shown(Status::Testing, &Fixture::options(true, false)));
+    }
 
-        #[test]
-        fn test_is_status_shown_testing() {
-            assert!(is_status_shown(Status::Testing, &Fixture::options(false, true)));
-            assert!(is_status_shown(Status::Testing, &Fixture::options(true, true)));
-        }
+    #[test]
+    fn test_is_status_shown_testing() {
+        assert!(is_status_shown(Status::Testing, &Fixture::options(false, true)));
+        assert!(is_status_shown(Status::Testing, &Fixture::options(true, true)));
     }
 }
