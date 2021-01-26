@@ -105,6 +105,9 @@ fn run() -> Result<()> {
             if !system_is_affected(db, pkg, &avg) {
                 continue;
             }
+            if !is_status_shown(avg.status, &options) {
+                continue;
+            }
 
             let aff = Affected {
                 package: pkg.to_string(),
@@ -210,6 +213,27 @@ fn system_is_affected(db: Db, pkg: &str, avg: &Avg) -> bool {
     }
 }
 
+/// Given a `Status` return if it should be shown based on the status and passed `Options`
+fn is_status_shown(status: Status, options: &Options) -> bool {
+    match status {
+        Status::Unknown => {
+            !options.upgradable_only
+        }
+        Status::NotAffected => {
+            false
+        }
+        Status::Vulnerable => {
+            !options.upgradable_only
+        }
+        Status::Fixed => {
+            true
+        }
+        Status::Testing => {
+            options.show_testing
+        }
+    }
+}
+
 /// Print a single Affected
 fn print_affected(
     options: &Options,
@@ -218,7 +242,7 @@ fn print_affected(
     db: Db,
 ) -> Result<()> {
     match aff.fixed {
-        Some(ref v) if aff.status != Status::Vulnerable => {
+        Some(ref v) => {
             // Quiet option
             if options.quiet >= 1 {
                 write_with_colours(
@@ -477,6 +501,18 @@ mod test {
         const ROOT_DIR: &str = "/";
         const DB_PATH: &str = "/var/lib/pacman";
 
+        fn create_options(upgradable_only: bool, show_testing: bool) -> Options {
+            Options {
+                color: enums::Color::Never,
+                format: None,
+                quiet: 0,
+                recursive: 0,
+                upgradable_only,
+                show_testing,
+                show_cve: false,
+            }
+        }
+
         #[test]
         fn test_system_is_affected() -> Result<()> {
             let pacman = alpm::Alpm::new(ROOT_DIR, DB_PATH)?;
@@ -504,6 +540,58 @@ mod test {
 
             assert!(system_is_affected(db, "filesystem", &avg2));
             Ok(())
+        }
+
+        #[test]
+        fn test_is_status_shown_unknown() {
+            assert!(is_status_shown(Status::Unknown, &create_options(false, false)));
+            assert!(is_status_shown(Status::Unknown, &create_options(false, true)));
+        }
+
+        #[test]
+        fn test_is_status_shown_unknown_upgradable_only() {
+            assert_eq!(false, is_status_shown(Status::Unknown, &create_options(true, false)));
+            assert_eq!(false, is_status_shown(Status::Unknown, &create_options(true, true)));
+        }
+
+        #[test]
+        fn test_is_status_shown_not_affected() {
+            assert_eq!(false, is_status_shown(Status::NotAffected, &create_options(false, false)));
+            assert_eq!(false, is_status_shown(Status::NotAffected, &create_options(false, true)));
+            assert_eq!(false, is_status_shown(Status::NotAffected, &create_options(true, false)));
+            assert_eq!(false, is_status_shown(Status::NotAffected, &create_options(true, true)));
+        }
+
+        #[test]
+        fn test_is_status_shown_vulnerable() {
+            assert!(is_status_shown(Status::Vulnerable, &create_options(false, false)));
+            assert!(is_status_shown(Status::Vulnerable, &create_options(false, true)));
+        }
+
+        #[test]
+        fn test_is_status_shown_vulnerable_upgradable_only() {
+            assert_eq!(false, is_status_shown(Status::Vulnerable, &create_options(true, false)));
+            assert_eq!(false, is_status_shown(Status::Vulnerable, &create_options(true, true)));
+        }
+
+        #[test]
+        fn test_is_status_shown_fixed() {
+            assert!(is_status_shown(Status::Fixed, &create_options(false, false)));
+            assert!(is_status_shown(Status::Fixed, &create_options(false, true)));
+            assert!(is_status_shown(Status::Fixed, &create_options(true, false)));
+            assert!(is_status_shown(Status::Fixed, &create_options(true, true)));
+        }
+
+        #[test]
+        fn test_is_status_shown_no_testing() {
+            assert_eq!(false, is_status_shown(Status::Testing, &create_options(false, false)));
+            assert_eq!(false, is_status_shown(Status::Testing, &create_options(true, false)));
+        }
+
+        #[test]
+        fn test_is_status_shown_testing() {
+            assert!(is_status_shown(Status::Testing, &create_options(false, true)));
+            assert!(is_status_shown(Status::Testing, &create_options(true, true)));
         }
     }
 }
