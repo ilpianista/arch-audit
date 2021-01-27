@@ -220,21 +220,11 @@ fn system_is_affected(db: Db, pkg: &str, avg: &Avg) -> bool {
 /// Given a `Status` return if it should be shown based on the status and passed `Options`
 fn is_status_shown(status: Status, options: &Options) -> bool {
     match status {
-        Status::Unknown => {
-            !options.upgradable_only
-        }
-        Status::NotAffected => {
-            false
-        }
-        Status::Vulnerable => {
-            !options.upgradable_only
-        }
-        Status::Fixed => {
-            true
-        }
-        Status::Testing => {
-            options.show_testing
-        }
+        Status::Unknown => !options.upgradable_only,
+        Status::NotAffected => false,
+        Status::Vulnerable => !options.upgradable_only,
+        Status::Fixed => true,
+        Status::Testing => options.show_testing,
     }
 }
 
@@ -496,19 +486,21 @@ fn write_with_colours(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{enums, Options};
+    use alpm::Alpm;
+    use anyhow::{Context, Result};
     use std::fs::{create_dir, File};
     use std::io::Write;
-    use tempfile::TempDir;
     use tempfile::Builder as TempfileBuilder;
-    use anyhow::{Result, Context};
-    use alpm::Alpm;
-    use crate::{enums, Options};
+    use tempfile::TempDir;
 
     struct Fixture;
 
     impl Fixture {
         fn alpm(packages: Vec<&str>) -> Result<(TempDir, Alpm)> {
-            let tempdir = TempfileBuilder::new().prefix("arch-audit-test-").tempdir()?;
+            let tempdir = TempfileBuilder::new()
+                .prefix("arch-audit-test-")
+                .tempdir()?;
 
             let local_path = tempdir.path().join("local");
             create_dir(local_path.clone())?;
@@ -522,7 +514,10 @@ mod tests {
                 create_dir(file_path)?;
             }
 
-            let path = tempdir.path().to_str().context("Failed to convert tempdir path to str")?;
+            let path = tempdir
+                .path()
+                .to_str()
+                .context("Failed to convert tempdir path to str")?;
             let alpm = Alpm::new(path, path)?;
             Ok((tempdir, alpm))
         }
@@ -614,53 +609,113 @@ mod tests {
 
     #[test]
     fn test_is_status_shown_unknown() {
-        assert!(is_status_shown(Status::Unknown, &Fixture::options(false, false)));
-        assert!(is_status_shown(Status::Unknown, &Fixture::options(false, true)));
+        assert!(is_status_shown(
+            Status::Unknown,
+            &Fixture::options(false, false)
+        ));
+        assert!(is_status_shown(
+            Status::Unknown,
+            &Fixture::options(false, true)
+        ));
     }
 
     #[test]
     fn test_is_status_shown_unknown_upgradable_only() {
-        assert_eq!(false, is_status_shown(Status::Unknown, &Fixture::options(true, false)));
-        assert_eq!(false, is_status_shown(Status::Unknown, &Fixture::options(true, true)));
+        assert_eq!(
+            false,
+            is_status_shown(Status::Unknown, &Fixture::options(true, false))
+        );
+        assert_eq!(
+            false,
+            is_status_shown(Status::Unknown, &Fixture::options(true, true))
+        );
     }
 
     #[test]
     fn test_is_status_shown_not_affected() {
-        assert_eq!(false, is_status_shown(Status::NotAffected, &Fixture::options(false, false)));
-        assert_eq!(false, is_status_shown(Status::NotAffected, &Fixture::options(false, true)));
-        assert_eq!(false, is_status_shown(Status::NotAffected, &Fixture::options(true, false)));
-        assert_eq!(false, is_status_shown(Status::NotAffected, &Fixture::options(true, true)));
+        assert_eq!(
+            false,
+            is_status_shown(Status::NotAffected, &Fixture::options(false, false))
+        );
+        assert_eq!(
+            false,
+            is_status_shown(Status::NotAffected, &Fixture::options(false, true))
+        );
+        assert_eq!(
+            false,
+            is_status_shown(Status::NotAffected, &Fixture::options(true, false))
+        );
+        assert_eq!(
+            false,
+            is_status_shown(Status::NotAffected, &Fixture::options(true, true))
+        );
     }
 
     #[test]
     fn test_is_status_shown_vulnerable() {
-        assert!(is_status_shown(Status::Vulnerable, &Fixture::options(false, false)));
-        assert!(is_status_shown(Status::Vulnerable, &Fixture::options(false, true)));
+        assert!(is_status_shown(
+            Status::Vulnerable,
+            &Fixture::options(false, false)
+        ));
+        assert!(is_status_shown(
+            Status::Vulnerable,
+            &Fixture::options(false, true)
+        ));
     }
 
     #[test]
     fn test_is_status_shown_vulnerable_upgradable_only() {
-        assert_eq!(false, is_status_shown(Status::Vulnerable, &Fixture::options(true, false)));
-        assert_eq!(false, is_status_shown(Status::Vulnerable, &Fixture::options(true, true)));
+        assert_eq!(
+            false,
+            is_status_shown(Status::Vulnerable, &Fixture::options(true, false))
+        );
+        assert_eq!(
+            false,
+            is_status_shown(Status::Vulnerable, &Fixture::options(true, true))
+        );
     }
 
     #[test]
     fn test_is_status_shown_fixed() {
-        assert!(is_status_shown(Status::Fixed, &Fixture::options(false, false)));
-        assert!(is_status_shown(Status::Fixed, &Fixture::options(false, true)));
-        assert!(is_status_shown(Status::Fixed, &Fixture::options(true, false)));
-        assert!(is_status_shown(Status::Fixed, &Fixture::options(true, true)));
+        assert!(is_status_shown(
+            Status::Fixed,
+            &Fixture::options(false, false)
+        ));
+        assert!(is_status_shown(
+            Status::Fixed,
+            &Fixture::options(false, true)
+        ));
+        assert!(is_status_shown(
+            Status::Fixed,
+            &Fixture::options(true, false)
+        ));
+        assert!(is_status_shown(
+            Status::Fixed,
+            &Fixture::options(true, true)
+        ));
     }
 
     #[test]
     fn test_is_status_shown_no_testing() {
-        assert_eq!(false, is_status_shown(Status::Testing, &Fixture::options(false, false)));
-        assert_eq!(false, is_status_shown(Status::Testing, &Fixture::options(true, false)));
+        assert_eq!(
+            false,
+            is_status_shown(Status::Testing, &Fixture::options(false, false))
+        );
+        assert_eq!(
+            false,
+            is_status_shown(Status::Testing, &Fixture::options(true, false))
+        );
     }
 
     #[test]
     fn test_is_status_shown_testing() {
-        assert!(is_status_shown(Status::Testing, &Fixture::options(false, true)));
-        assert!(is_status_shown(Status::Testing, &Fixture::options(true, true)));
+        assert!(is_status_shown(
+            Status::Testing,
+            &Fixture::options(false, true)
+        ));
+        assert!(is_status_shown(
+            Status::Testing,
+            &Fixture::options(true, true)
+        ));
     }
 }
