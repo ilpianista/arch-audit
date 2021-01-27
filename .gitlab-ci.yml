@@ -1,4 +1,4 @@
-image: archlinux/base:latest
+image: archlinux:latest
 
 test:cargo:
   script:
