@@ -1,6 +1,7 @@
-use serde::Deserialize;
 use std::fmt;
-use std::str::FromStr;
+
+use serde::Deserialize;
+use strum_macros::{EnumString, EnumVariantNames, ToString};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Deserialize)]
 pub enum Severity {
@@ -57,23 +58,12 @@ impl Default for Status {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd)]
+#[derive(Debug, ToString, EnumString, EnumVariantNames)]
+#[strum(serialize_all = "snake_case")]
 pub enum Color {
     Always,
     Auto,
     Never,
-}
-
-impl FromStr for Color {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Color, ()> {
-        match s.to_lowercase().as_str() {
-            "always" => Ok(Color::Always),
-            "never" => Ok(Color::Never),
-            _ => Ok(Color::Auto),
-        }
-    }
 }
 
 impl Default for Color {

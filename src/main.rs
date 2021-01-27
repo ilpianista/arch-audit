@@ -1,4 +1,8 @@
+extern crate strum;
+extern crate strum_macros;
+
 use crate::enums::{Color, Severity, Status};
+
 use alpm::{Alpm, Db, Version};
 use anyhow::{Context, Result};
 use atty::Stream;
