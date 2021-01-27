@@ -1,8 +1,29 @@
 image: archlinux:latest
 
-test:cargo:
+stages:
+  - test
+
+before_script:
+  - pacman -Syu --needed --noconfirm rust gcc pkg-config
+  - rustc --version
+  - cargo --version
+
+format:
+  stage: test
   script:
-  - pacman -Syu --noconfirm
-  - pacman -S gcc rust pkg-config --noconfirm
-  - rustc --version && cargo --version      # Print version info for debugging
-  - cargo test --verbose --jobs 1 --release # Don't paralize to make errors more readable
+    - cargo fmt --all -- --check
+
+clippy:
+  stage: test
+  script:
+    - cargo clippy --all -- -D warnings
+
+check:
+  stage: test
+  script:
+    - cargo check --all --verbose --release
+
+test:
+  stage: test
+  script:
+    - cargo test --all --verbose --release
