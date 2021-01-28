@@ -1,12 +1,11 @@
 extern crate strum;
 extern crate strum_macros;
 
-use crate::enums::{Color, Severity, Status};
+use crate::enums::{Severity, Status};
 
 use alpm::{Alpm, Db, Version};
 use anyhow::{Context, Result};
 use atty::Stream;
-use clap::{load_yaml, App};
 use curl::easy::Easy;
 use log::{debug, info};
 use serde::Deserialize;
@@ -15,9 +14,13 @@ use std::default::Default;
 use std::io;
 use std::process::exit;
 use std::str;
+use structopt::StructOpt;
 use term::terminfo::TermInfo;
 use term::{color, Attr};
 use term::{StdoutTerminal, TerminfoTerminal};
+
+use args::*;
+mod args;
 
 mod enums;
 
@@ -25,10 +28,10 @@ const WEBSITE: &str = "https://security.archlinux.org";
 
 #[derive(Default)]
 struct Options {
-    color: enums::Color,
+    color: Color,
     format: Option<String>,
-    quiet: u64,
-    recursive: u64,
+    quiet: u8,
+    recursive: u8,
     upgradable_only: bool,
     show_testing: bool,
     show_cve: bool,
@@ -62,7 +65,11 @@ struct Affected {
 }
 
 fn main() {
-    if let Err(err) = run() {
+    let args = Args::from_args();
+
+    env_logger::init();
+
+    if let Err(err) = run(args) {
         eprintln!("Error: {}", err);
         for cause in err.chain().skip(1) {
             eprintln!("Because: {}", cause);
@@ -71,29 +78,24 @@ fn main() {
     }
 }
 
-fn run() -> Result<()> {
-    env_logger::init();
-
-    let yaml = load_yaml!("cli.yml");
-    let args = App::from_yaml(yaml).get_matches();
-    let color = args.value_of("color").unwrap();
-    let color = color.parse::<Color>().unwrap();
-    let format = args.value_of("format").map(|v| v.to_string());
-
+fn run(args: Args) -> Result<()> {
     let options = Options {
-        color,
-        format,
-        quiet: args.occurrences_of("quiet"),
-        recursive: args.occurrences_of("recursive"),
-        upgradable_only: args.is_present("upgradable"),
-        show_testing: args.is_present("testing"),
-        show_cve: args.is_present("show-cve"),
+        color: args.color,
+        format: args.format,
+        quiet: args.quiet,
+        recursive: args.recursive,
+        upgradable_only: args.upgradable,
+        show_testing: args.testing,
+        show_cve: args.show_cve,
     };
 
     let avgs = get_avg_json().context("failed to fetch avgs")?;
     let avgs: Avgs = serde_json::from_slice(&avgs).context("failed to parse json")?;
 
-    let dbpath = args.value_of("dbpath").unwrap();
+    let dbpath = args
+        .dbpath
+        .to_str()
+        .context("failed to convert dbpath to str")?;
     let pacman = Alpm::new("/", dbpath)
         .with_context(|| format!("failed to initial alpm: root='/' dbpath='{}'", dbpath))?;
     let db = pacman.localdb();
@@ -524,7 +526,7 @@ mod tests {
 
         fn options(upgradable_only: bool, show_testing: bool) -> Options {
             Options {
-                color: enums::Color::Never,
+                color: Color::Never,
                 format: None,
                 quiet: 0,
                 recursive: 0,

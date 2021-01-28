@@ -1,7 +1,6 @@
 use std::fmt;
 
 use serde::Deserialize;
-use strum_macros::{EnumString, EnumVariantNames, ToString};
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Deserialize)]
 pub enum Severity {
@@ -55,19 +54,5 @@ pub enum Status {
 impl Default for Status {
     fn default() -> Self {
         Status::Unknown
-    }
-}
-
-#[derive(Debug, ToString, EnumString, EnumVariantNames)]
-#[strum(serialize_all = "snake_case")]
-pub enum Color {
-    Always,
-    Auto,
-    Never,
-}
-
-impl Default for Color {
-    fn default() -> Self {
-        Color::Auto
     }
 }
