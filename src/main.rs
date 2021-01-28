@@ -1,7 +1,17 @@
 extern crate strum;
 extern crate strum_macros;
 
-use crate::enums::{Severity, Status};
+use args::*;
+mod args;
+
+use enums::{Severity, Status};
+mod enums;
+
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::default::Default;
+use std::io;
+use std::process::exit;
+use std::str;
 
 use alpm::{Alpm, Db, Version};
 use anyhow::{Context, Result};
@@ -9,20 +19,10 @@ use atty::Stream;
 use curl::easy::Easy;
 use log::{debug, info};
 use serde::Deserialize;
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::default::Default;
-use std::io;
-use std::process::exit;
-use std::str;
 use structopt::StructOpt;
 use term::terminfo::TermInfo;
 use term::{color, Attr};
 use term::{StdoutTerminal, TerminfoTerminal};
-
-use args::*;
-mod args;
-
-mod enums;
 
 const WEBSITE: &str = "https://security.archlinux.org";
 
