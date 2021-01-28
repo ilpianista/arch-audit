@@ -6,7 +6,7 @@
 
 [pkg-audit](https://www.freebsd.org/cgi/man.cgi?query=pkg-audit&sektion=8)-like utility for [Arch Linux](https://archlinux.org).
 
-Uses data collected by the awesome [Arch Security Team](https://wiki.archlinux.org/index.php/Arch_Security_Team).
+Uses data from [security.archlinux.org](https://security.archlinux.org/) collected by the awesome [Arch Security Team](https://wiki.archlinux.org/index.php/Arch_Security_Team).
 
 ## Installation
 
