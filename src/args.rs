@@ -61,7 +61,7 @@ pub enum Color {
 
 impl Default for Color {
     fn default() -> Self {
-        Color::Auto
+        Self::Auto
     }
 }
 

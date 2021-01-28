@@ -1,3 +1,4 @@
+#![deny(clippy::nursery, clippy::cargo)]
 extern crate strum;
 extern crate strum_macros;
 
@@ -113,7 +114,7 @@ fn run(args: Args) -> Result<()> {
         }
 
         for pkg in &avg.packages {
-            if !system_is_affected(db, pkg, &avg) {
+            if !system_is_affected(db, pkg, avg) {
                 continue;
             }
             if !is_status_shown(avg.status, &options) {
@@ -225,7 +226,7 @@ fn system_is_affected(db: Db, pkg: &str, avg: &Avg) -> bool {
 }
 
 /// Given a `Status` return if it should be shown based on the status and passed `Options`
-fn is_status_shown(status: Status, options: &Options) -> bool {
+const fn is_status_shown(status: Status, options: &Options) -> bool {
     match status {
         Status::Unknown => !options.upgradable_only,
         Status::NotAffected => false,
