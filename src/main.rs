@@ -8,6 +8,9 @@ mod args;
 use enums::*;
 mod enums;
 
+use util::*;
+mod util;
+
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::default::Default;
 use std::io;
@@ -36,6 +39,7 @@ struct Options {
     upgradable_only: bool,
     show_testing: bool,
     show_cve: bool,
+    sort: Vec<SortBy>,
 }
 
 #[derive(Deserialize)]
@@ -56,7 +60,7 @@ struct Avg {
 }
 
 #[derive(PartialOrd, Ord, PartialEq, Eq)]
-struct Affected {
+pub struct Affected {
     package: String,
     cves: Vec<String>,
     severity: Severity,
@@ -93,6 +97,7 @@ fn run(args: Args) -> Result<()> {
         upgradable_only: args.upgradable,
         show_testing: args.testing,
         show_cve: args.show_cve,
+        sort: args.sort,
     };
 
     let avgs = get_avg_json(args.source.as_str()).context("failed to get AVG json")?;
@@ -141,7 +146,6 @@ fn run(args: Args) -> Result<()> {
                 aff.fixed = avg.fixed.clone();
             }
 
-            aff.kind.sort_unstable();
             aff.kind.dedup()
         }
     }
@@ -323,7 +327,10 @@ fn print_all_affected(
             as Box<StdoutTerminal>,
     };
 
-    for aff in affected.values() {
+    let mut affected = affected.values().into_iter().collect::<Vec<&Affected>>();
+    sort_affected(&mut affected, &options.sort);
+
+    for aff in affected {
         print_affected(options, t.as_mut(), aff, db)?;
     }
 
@@ -548,6 +555,7 @@ mod tests {
                 upgradable_only,
                 show_testing,
                 show_cve: false,
+                sort: vec![],
             }
         }
     }

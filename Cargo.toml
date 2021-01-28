@@ -27,6 +27,7 @@ structopt = "0.3"
 strum = "^0.20"
 strum_macros = "^0.20"
 url = "^2.2"
+lazy_static = "1.4"
 
 [dev-dependencies]
 tempfile = "^3.2"

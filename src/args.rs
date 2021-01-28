@@ -5,6 +5,7 @@ use structopt::clap::{AppSettings, Shell};
 use structopt::StructOpt;
 
 use anyhow::Result;
+use lazy_static::lazy_static;
 use strum::VariantNames;
 use strum_macros::{EnumString, EnumVariantNames, ToString};
 
@@ -40,6 +41,9 @@ pub struct Args {
     /// Specify the URL or file path to the security tracker json data
     #[structopt(long, default_value = "https://security.archlinux.org/all.json")]
     pub source: String,
+    /// Specify how to sort the output
+    #[structopt(long, use_delimiter = true, possible_values = &SortBy::VARIANTS, default_value = &SORT_BY_DEFAULT_VALUE)]
+    pub sort: Vec<SortBy>,
     /// Print the CVE numbers.
     #[structopt(long, short = "c")]
     pub show_cve: bool,
@@ -66,6 +70,24 @@ impl Default for Color {
     fn default() -> Self {
         Self::Auto
     }
+}
+
+#[derive(Debug, StructOpt, ToString, EnumString, EnumVariantNames)]
+#[strum(serialize_all = "snake_case")]
+pub enum SortBy {
+    Severity,
+    Pkgname,
+    Upgradable,
+    Reverse,
+}
+
+lazy_static! {
+    static ref SORT_BY_DEFAULT_VALUE: String =
+        vec![SortBy::Severity, SortBy::Pkgname,]
+            .iter()
+            .map(|e| e.to_string())
+            .collect::<Vec<String>>()
+            .join(",");
 }
 
 #[derive(Debug, StructOpt)]
