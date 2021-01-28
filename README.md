@@ -27,6 +27,14 @@ After the installation just execute `arch-audit`.
     cargo build
     cargo run
 
+### Completion
+
+Completions are generated using the `completions` subcommand of `arch-audit` and are available for various shells like `zsh`, `bash`, `fish` and more:
+
+    arch-audit completions zsh > /usr/share/zsh/site-functions/_arch-audit
+    arch-audit completions bash > /usr/share/bash-completion/completions/arch-audit
+    arch-audit completions fish > /usr/share/fish/vendor_completions.d/arch-audit.fish
+
 ## Example output
 
     $ arch-audit

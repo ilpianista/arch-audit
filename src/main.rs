@@ -79,6 +79,11 @@ fn main() {
 }
 
 fn run(args: Args) -> Result<()> {
+    if let Some(SubCommand::Completions(completions)) = args.subcommand {
+        args::gen_completions(&completions)?;
+        return Ok(());
+    }
+
     let options = Options {
         color: args.color,
         format: args.format,

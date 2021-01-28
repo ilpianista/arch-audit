@@ -1,8 +1,10 @@
+use std::io::stdout;
 use std::path::PathBuf;
 
-use structopt::clap::{AppSettings};
+use structopt::clap::{AppSettings, Shell};
 use structopt::StructOpt;
 
+use anyhow::Result;
 use strum::VariantNames;
 use strum_macros::{EnumString, EnumVariantNames, ToString};
 
@@ -38,6 +40,15 @@ pub struct Args {
     /// Print the CVE numbers.
     #[structopt(long, short = "c")]
     pub show_cve: bool,
+    #[structopt(subcommand)]
+    pub subcommand: Option<SubCommand>,
+}
+
+#[derive(Debug, StructOpt)]
+pub enum SubCommand {
+    /// Generate shell completions
+    #[structopt(name = "completions")]
+    Completions(Completions),
 }
 
 #[derive(Debug, StructOpt, ToString, EnumString, EnumVariantNames)]
@@ -52,4 +63,15 @@ impl Default for Color {
     fn default() -> Self {
         Color::Auto
     }
+}
+
+#[derive(Debug, StructOpt)]
+pub struct Completions {
+    #[structopt(possible_values=&Shell::variants())]
+    pub shell: Shell,
+}
+
+pub fn gen_completions(args: &Completions) -> Result<()> {
+    Args::clap().gen_completions_to("dfrs", args.shell, &mut stdout());
+    Ok(())
 }
