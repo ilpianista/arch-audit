@@ -1,29 +1,82 @@
 image: archlinux:latest
 
 stages:
+  - build
+  - docs
   - test
 
+variables:
+  CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
+  PACMAN_CACHE: "${CI_PROJECT_DIR}/.pacman/pkg"
+
+cache:
+  paths:
+    - .cargo/
+    - target/
+    - .pacman/pkg
+  key: ${CI_JOB_NAME}
+
 before_script:
-  - pacman -Syu --needed --noconfirm rust gcc pkg-config
+  - install -d "${PACMAN_CACHE}"
+  - pacman -Syu --needed --noconfirm --cachedir "${PACMAN_CACHE}" rust gcc pkg-config make scdoc
   - rustc --version
   - cargo --version
 
+build:
+  stage: build
+  needs: []
+  script:
+    - cargo build --release
+  artifacts:
+    paths:
+      - target
+    expire_in: 1 day
+
+man:
+  stage: docs
+  needs: []
+  script:
+    - make docs
+  artifacts:
+    paths:
+      - contrib/man/arch-audit.1
+    expire_in: 1 day
+
+completions:
+  stage: docs
+  needs:
+    - build
+  script:
+    - make completions
+  artifacts:
+    paths:
+      - target/completion/
+    expire_in: 1 day
+
 format:
   stage: test
+  needs: []
   script:
     - cargo fmt --all -- --check
 
 clippy:
   stage: test
+  needs:
+    - build
   script:
+    - find . -name '*.rs' -exec touch {} +
     - cargo clippy --all -- -D warnings
 
 check:
   stage: test
+  needs:
+    - build
   script:
     - cargo check --all --verbose --release
 
 test:
   stage: test
+  needs:
+    - build
   script:
     - cargo test --all --verbose --release
