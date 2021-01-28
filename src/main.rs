@@ -5,7 +5,7 @@ extern crate strum_macros;
 use args::*;
 mod args;
 
-use enums::{Severity, Status};
+use enums::*;
 mod enums;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -20,12 +20,12 @@ use atty::Stream;
 use curl::easy::Easy;
 use log::{debug, info};
 use serde::Deserialize;
+use std::fs::read_to_string;
 use structopt::StructOpt;
 use term::terminfo::TermInfo;
 use term::{color, Attr};
 use term::{StdoutTerminal, TerminfoTerminal};
-
-const WEBSITE: &str = "https://security.archlinux.org";
+use url::Url;
 
 #[derive(Default)]
 struct Options {
@@ -95,8 +95,8 @@ fn run(args: Args) -> Result<()> {
         show_cve: args.show_cve,
     };
 
-    let avgs = get_avg_json().context("failed to fetch avgs")?;
-    let avgs: Avgs = serde_json::from_slice(&avgs).context("failed to parse json")?;
+    let avgs = get_avg_json(args.source.as_str()).context("failed to get AVG json")?;
+    let avgs: Avgs = serde_json::from_str(&avgs).context("failed to parse json")?;
 
     let dbpath = args
         .dbpath
@@ -150,15 +150,22 @@ fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn get_avg_json() -> Result<Vec<u8>> {
+fn get_avg_json(from: &str) -> Result<String> {
+    let json = match Url::parse(from) {
+        Ok(url) => fetch_avg_json(&url).context("failed to fetch AVGs from URL")?,
+        Err(_) => read_to_string(from).context("failed to read AVGs from file")?,
+    };
+    Ok(json)
+}
+
+fn fetch_avg_json(url: &Url) -> Result<String> {
     let mut avgs = Vec::new();
-    info!("Downloading AVGs...");
-    let avgs_url = format!("{}/issues/all.json", WEBSITE);
+    info!("Downloading AVGs from {}", url);
 
     let mut easy = Easy::new();
     easy.fail_on_error(true)?;
     easy.follow_location(true)?;
-    easy.url(&avgs_url)?;
+    easy.url(url.as_str())?;
     let mut transfer = easy.transfer();
     transfer.write_function(|data| {
         avgs.extend(data);
@@ -166,7 +173,9 @@ fn get_avg_json() -> Result<Vec<u8>> {
     })?;
     transfer.perform()?;
     drop(transfer);
-    Ok(avgs)
+
+    let json = String::from_utf8(avgs).context("failed to decode utf8")?;
+    Ok(json)
 }
 
 fn get_required_by(db: Db, pkg: &str) -> Vec<String> {

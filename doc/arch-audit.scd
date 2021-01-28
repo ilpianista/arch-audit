@@ -53,6 +53,9 @@ See https://wiki.archlinux.org/index.php/Official_repositories#Testing_repositor
 
 	%r	required by (only when -r is also used)
 
+*--source* [_SOURCE_]
+	Specify the URL or file path to the security tracker json data. By default, arch-audit uses https://security.archlinux.org/all.json
+
 *-V*, *--version*
 	Prints version information
 
