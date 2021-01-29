@@ -82,12 +82,11 @@ pub enum SortBy {
 }
 
 lazy_static! {
-    static ref SORT_BY_DEFAULT_VALUE: String =
-        vec![SortBy::Severity, SortBy::Pkgname,]
-            .iter()
-            .map(|e| e.to_string())
-            .collect::<Vec<String>>()
-            .join(",");
+    static ref SORT_BY_DEFAULT_VALUE: String = vec![SortBy::Severity, SortBy::Pkgname,]
+        .iter()
+        .map(|e| e.to_string())
+        .collect::<Vec<String>>()
+        .join(",");
 }
 
 #[derive(Debug, StructOpt)]
