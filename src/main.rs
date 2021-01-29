@@ -287,7 +287,7 @@ fn print_affected_colored(
     // Normal "is affected by {issues}"
     write!(t, " is affected by {}. ", aff.kind.join(", "))?;
     if options.show_cve {
-        write!(t, "({}). ", aff.cves.join(","))?;
+        write!(t, "({}). ", aff.cves.join(", "))?;
     }
 
     if options.recursive != 0 {
@@ -364,7 +364,7 @@ fn print_affected_formatted(
                     chars.next();
                 }
                 Some('c') => {
-                    write!(t, "{}", aff.cves.join(","))?;
+                    write!(t, "{}", aff.cves.join(", "))?;
                     chars.next();
                 }
                 Some('v') => {
