@@ -83,3 +83,16 @@ pub struct Affected {
     pub fixed: Option<String>,
     pub kind: Vec<String>,
 }
+
+impl Affected {
+    pub fn new(package: &str) -> Self {
+        Self {
+            package: package.to_string(),
+            cves: Vec::new(),
+            kind: Vec::new(),
+            severity: Severity::Unknown,
+            status: Status::Unknown,
+            fixed: None,
+        }
+    }
+}

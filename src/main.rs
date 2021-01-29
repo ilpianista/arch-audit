@@ -74,16 +74,9 @@ fn run(args: Args) -> Result<()> {
                 continue;
             }
 
-            let aff = Affected {
-                package: pkg.to_string(),
-                cves: Vec::new(),
-                kind: Vec::new(),
-                severity: avg.severity,
-                status: Status::Unknown,
-                fixed: None,
-            };
-
-            let aff = affected.entry(pkg.as_str()).or_insert(aff);
+            let aff = affected
+                .entry(pkg.as_str())
+                .or_insert_with(|| Affected::new(pkg));
             aff.severity = aff.severity.max(avg.severity);
             aff.cves.extend(avg.issues.clone());
             aff.kind.push(avg.kind.clone());
