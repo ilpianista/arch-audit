@@ -56,3 +56,30 @@ impl Default for Status {
         Self::Unknown
     }
 }
+
+#[derive(Deserialize)]
+#[serde(transparent)]
+pub struct Avgs {
+    pub avgs: Vec<Avg>,
+}
+
+#[derive(Deserialize, Clone, Default)]
+pub struct Avg {
+    pub packages: Vec<String>,
+    pub status: Status,
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub severity: Severity,
+    pub fixed: Option<String>,
+    pub issues: Vec<String>,
+}
+
+#[derive(PartialOrd, Ord, PartialEq, Eq)]
+pub struct Affected {
+    pub package: String,
+    pub cves: Vec<String>,
+    pub severity: Severity,
+    pub status: Status,
+    pub fixed: Option<String>,
+    pub kind: Vec<String>,
+}

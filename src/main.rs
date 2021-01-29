@@ -5,14 +5,13 @@ extern crate strum_macros;
 use args::*;
 mod args;
 
-use enums::*;
-mod enums;
+use types::*;
+mod types;
 
 use util::*;
 mod util;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::default::Default;
 use std::io;
 use std::process::exit;
 use std::str;
@@ -22,52 +21,12 @@ use anyhow::{Context, Result};
 use atty::Stream;
 use curl::easy::Easy;
 use log::{debug, info};
-use serde::Deserialize;
 use std::fs::read_to_string;
 use structopt::StructOpt;
 use term::terminfo::TermInfo;
 use term::{color, Attr};
 use term::{StdoutTerminal, TerminfoTerminal};
 use url::Url;
-
-#[derive(Default)]
-struct Options {
-    color: Color,
-    format: Option<String>,
-    quiet: u8,
-    recursive: u8,
-    upgradable_only: bool,
-    show_testing: bool,
-    show_cve: bool,
-    sort: Vec<SortBy>,
-}
-
-#[derive(Deserialize)]
-#[serde(transparent)]
-struct Avgs {
-    avgs: Vec<Avg>,
-}
-
-#[derive(Deserialize, Clone, Default)]
-struct Avg {
-    packages: Vec<String>,
-    status: Status,
-    #[serde(rename = "type")]
-    kind: String,
-    severity: Severity,
-    fixed: Option<String>,
-    issues: Vec<String>,
-}
-
-#[derive(PartialOrd, Ord, PartialEq, Eq)]
-pub struct Affected {
-    package: String,
-    cves: Vec<String>,
-    severity: Severity,
-    status: Status,
-    fixed: Option<String>,
-    kind: Vec<String>,
-}
 
 fn main() {
     let args = Args::from_args();
@@ -88,17 +47,6 @@ fn run(args: Args) -> Result<()> {
         args::gen_completions(&completions)?;
         return Ok(());
     }
-
-    let options = Options {
-        color: args.color,
-        format: args.format,
-        quiet: args.quiet,
-        recursive: args.recursive,
-        upgradable_only: args.upgradable,
-        show_testing: args.testing,
-        show_cve: args.show_cve,
-        sort: args.sort,
-    };
 
     let avgs = get_avg_json(args.source.as_str()).context("failed to get AVG json")?;
     let avgs: Avgs = serde_json::from_str(&avgs).context("failed to parse json")?;
@@ -122,7 +70,7 @@ fn run(args: Args) -> Result<()> {
             if !system_is_affected(db, pkg, avg) {
                 continue;
             }
-            if !is_status_shown(avg.status, &options) {
+            if !is_status_shown(avg.status, &args) {
                 continue;
             }
 
@@ -150,7 +98,7 @@ fn run(args: Args) -> Result<()> {
         }
     }
 
-    print_all_affected(&options, &affected, db)?;
+    print_all_affected(&args, &affected, db)?;
     Ok(())
 }
 
@@ -239,19 +187,19 @@ fn system_is_affected(db: Db, pkg: &str, avg: &Avg) -> bool {
 }
 
 /// Given a `Status` return if it should be shown based on the status and passed `Options`
-const fn is_status_shown(status: Status, options: &Options) -> bool {
+const fn is_status_shown(status: Status, options: &Args) -> bool {
     match status {
-        Status::Unknown => !options.upgradable_only,
+        Status::Unknown => !options.upgradable,
         Status::NotAffected => false,
-        Status::Vulnerable => !options.upgradable_only,
+        Status::Vulnerable => !options.upgradable,
         Status::Fixed => true,
-        Status::Testing => options.show_testing,
+        Status::Testing => options.testing,
     }
 }
 
 /// Print a single Affected
 fn print_affected(
-    options: &Options,
+    options: &Args,
     t: &mut term::StdoutTerminal,
     aff: &Affected,
     db: Db,
@@ -286,7 +234,7 @@ fn print_affected(
             writeln!(t)?;
         }
 
-        _ if !options.upgradable_only => {
+        _ if !options.upgradable => {
             if options.quiet > 0 {
                 write_with_colours(
                     t,
@@ -309,11 +257,7 @@ fn print_affected(
 }
 
 // Print a list of Affected
-fn print_all_affected(
-    options: &Options,
-    affected: &BTreeMap<&str, Affected>,
-    db: Db,
-) -> Result<()> {
+fn print_all_affected(options: &Args, affected: &BTreeMap<&str, Affected>, db: Db) -> Result<()> {
     let fake_term = TermInfo {
         names: vec![],
         bools: HashMap::new(),
@@ -341,7 +285,7 @@ fn print_all_affected(
 fn print_affected_colored(
     t: &mut term::StdoutTerminal,
     aff: &Affected,
-    options: &Options,
+    options: &Args,
     db: Db,
 ) -> Result<()> {
     // Bold package
@@ -381,7 +325,7 @@ fn print_affected_colored(
             write!(t, " Update to at least ")?;
             write_with_colours(t, version, options, Some(color::GREEN), Some(Attr::Bold))?;
             write!(t, "!")?;
-        } else if aff.status == Status::Testing && options.show_testing {
+        } else if aff.status == Status::Testing && options.testing {
             // Print: Update to {} from the testing repos!"
             write!(t, " Update to at least")?;
             write_with_colours(t, version, options, Some(color::GREEN), Some(Attr::Bold))?;
@@ -395,7 +339,7 @@ fn print_affected_colored(
 fn print_affected_formatted(
     t: &mut term::StdoutTerminal,
     aff: &Affected,
-    options: &Options,
+    options: &Args,
     f: &str,
     db: Db,
 ) -> Result<()> {
@@ -433,7 +377,7 @@ fn print_affected_formatted(
                 Some('v') => {
                     if let Some(ref version) = aff.fixed {
                         if aff.status == Status::Fixed
-                            || (aff.status == Status::Testing && options.show_testing)
+                            || (aff.status == Status::Testing && options.testing)
                         {
                             write_with_colours(
                                 t,
@@ -479,7 +423,7 @@ fn print_affected_formatted(
 fn write_with_colours(
     t: &mut term::StdoutTerminal,
     text: &str,
-    options: &Options,
+    options: &Args,
     color: Option<term::color::Color>,
     attribute: Option<term::Attr>,
 ) -> Result<()> {
@@ -510,7 +454,7 @@ fn write_with_colours(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{enums, Options};
+    use crate::{types, Args};
     use alpm::Alpm;
     use anyhow::{Context, Result};
     use std::fs::{create_dir, File};
@@ -546,16 +490,19 @@ mod tests {
             Ok((tempdir, alpm))
         }
 
-        fn options(upgradable_only: bool, show_testing: bool) -> Options {
-            Options {
+        fn options(upgradable: bool, testing: bool) -> Args {
+            Args {
                 color: Color::Never,
+                dbpath: Default::default(),
                 format: None,
                 quiet: 0,
                 recursive: 0,
-                upgradable_only,
-                show_testing,
+                upgradable,
+                testing,
                 show_cve: false,
                 sort: vec![],
+                source: "".to_string(),
+                subcommand: None,
             }
         }
     }
@@ -568,8 +515,8 @@ mod tests {
         let avg = Avg {
             issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
             fixed: Some("3009.0.0".to_string()),
-            severity: enums::Severity::Unknown,
-            status: enums::Status::Unknown,
+            severity: types::Severity::Unknown,
+            status: types::Status::Unknown,
             packages: Vec::new(),
             kind: String::new(),
         };
@@ -586,8 +533,8 @@ mod tests {
         let avg = Avg {
             issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
             fixed: Some("2000.0.0-1".to_string()),
-            severity: enums::Severity::Unknown,
-            status: enums::Status::Unknown,
+            severity: types::Severity::Unknown,
+            status: types::Status::Unknown,
             packages: Vec::new(),
             kind: String::new(),
         };
@@ -604,8 +551,8 @@ mod tests {
         let avg = Avg {
             issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
             fixed: Some("3000.0.0".to_string()),
-            severity: enums::Severity::Unknown,
-            status: enums::Status::Unknown,
+            severity: types::Severity::Unknown,
+            status: types::Status::Unknown,
             packages: Vec::new(),
             kind: String::new(),
         };
@@ -622,8 +569,8 @@ mod tests {
         let avg = Avg {
             issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
             fixed: Some("2021.01.19-1".to_string()),
-            severity: enums::Severity::Unknown,
-            status: enums::Status::Unknown,
+            severity: types::Severity::Unknown,
+            status: types::Status::Unknown,
             packages: Vec::new(),
             kind: String::new(),
         };
