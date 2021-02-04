@@ -5,6 +5,7 @@ PREFIX ?= /usr/local
 BINDIR ?= ${PREFIX}/bin
 DATAROOTDIR ?= ${PREFIX}/share
 MANDIR ?= ${DATAROOTDIR}/man
+SYSTEMDDIR ?= /usr/lib/systemd/system
 
 TARBALLDIR ?= target/release/tarball
 TARBALLFORMAT=tar.gz
@@ -63,6 +64,7 @@ install: arch-audit docs
 	$(INSTALL) -Dm 644 target/completion/bash/arch-audit -t $(DESTDIR)$(DATAROOTDIR)/bash-completion/completions
 	$(INSTALL) -Dm 644 target/completion/zsh/_arch-audit -t  $(DESTDIR)$(DATAROOTDIR)/zsh/site-functions
 	$(INSTALL) -Dm 644 target/completion/fish/arch-audit.fish -t  $(DESTDIR)$(DATAROOTDIR)/fish/vendor_completions.d
+	$(INSTALL) -Dm 644 contrib/systemd/arch-audit.* -t $(DESTDIR)$(SYSTEMDDIR)
 
 uninstall:
 	$(RM) -f $(DESTDIR)$(BINDIR)/arch-audit
