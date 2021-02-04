@@ -1,13 +1,57 @@
 [Unit]
-Description=Execute arch-audit
+Description=Audit installed packages against known vulnerabilities
 After=network-online.target
+Wants=network-online.target
 
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/arch-audit -uq
-User=nobody
-Group=nobody
-PrivateTmp=yes
-ProtectSystem=full
-ProtectHome=true
+DynamicUser=true
+User=arch-audit
+Group=arch-audit
+
+# Hardening options
+AmbientCapabilities=
+CPUAccounting=true
+CapabilityBoundingSet=
+DevicePolicy=closed
+IPAddressDeny=localhost
+LockPersonality=true
+MemoryAccounting=true
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
 PrivateDevices=true
+PrivateTmp=true
+PrivateUsers=true
+ProcSubset=pid
+ProtectClock=true
+ProtectControlGroups=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectProc=invisible
+ProtectSystem=strict
+RemoveIPC=true
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+SystemCallFilter=~@clock
+SystemCallFilter=~@cpu-emulation
+SystemCallFilter=~@debug
+SystemCallFilter=~@module
+SystemCallFilter=~@mount
+SystemCallFilter=~@obsolete
+SystemCallFilter=~@privileged
+SystemCallFilter=~@raw-io
+SystemCallFilter=~@reboot
+SystemCallFilter=~@resources
+SystemCallFilter=~@swap
+UMask=077
+
+[Install]
+WantedBy=multi-user.target
