@@ -80,3 +80,15 @@ test:
     - build
   script:
     - cargo test --all --verbose --release
+
+install:
+  stage: test
+  needs:
+    - build
+  script:
+    - install -d destdir
+    - make DESTDIR=destdir PREFIX=/usr install
+  artifacts:
+    paths:
+      - destdir
+    expire_in: 1 day
