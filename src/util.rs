@@ -12,7 +12,7 @@ pub fn cmp_by_pkgname(a: &&Affected, b: &&Affected) -> cmp::Ordering {
 }
 
 pub fn cmp_by_upgradable(a: &&Affected, b: &&Affected) -> cmp::Ordering {
-    a.fixed.is_some().cmp(&b.fixed.is_some())
+    a.fixed.is_some().cmp(&b.fixed.is_some()).reverse()
 }
 
 pub fn sort_affected(affected: &mut Vec<&Affected>, sort_by: &[SortBy]) {
