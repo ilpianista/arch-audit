@@ -62,8 +62,8 @@ install: arch-audit docs
 	$(INSTALL) -Dm 755 target/$(CARGO_TARGET)/arch-audit -t $(DESTDIR)$(BINDIR)
 	$(INSTALL) -Dm 644 contrib/man/*.1 -t $(DESTDIR)$(MANDIR)/man1
 	$(INSTALL) -Dm 644 target/completion/bash/arch-audit -t $(DESTDIR)$(DATAROOTDIR)/bash-completion/completions
-	$(INSTALL) -Dm 644 target/completion/zsh/_arch-audit -t  $(DESTDIR)$(DATAROOTDIR)/zsh/site-functions
-	$(INSTALL) -Dm 644 target/completion/fish/arch-audit.fish -t  $(DESTDIR)$(DATAROOTDIR)/fish/vendor_completions.d
+	$(INSTALL) -Dm 644 target/completion/zsh/_arch-audit -t $(DESTDIR)$(DATAROOTDIR)/zsh/site-functions
+	$(INSTALL) -Dm 644 target/completion/fish/arch-audit.fish -t $(DESTDIR)$(DATAROOTDIR)/fish/vendor_completions.d
 	$(INSTALL) -Dm 644 contrib/systemd/arch-audit.* -t $(DESTDIR)$(SYSTEMDDIR)
 
 uninstall:
