@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/arch-audit -uq
+ExecStart=/usr/bin/arch-audit -u
 DynamicUser=true
 User=arch-audit
 Group=arch-audit
