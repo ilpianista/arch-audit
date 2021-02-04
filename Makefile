@@ -5,7 +5,7 @@ PREFIX ?= /usr/local
 BINDIR ?= ${PREFIX}/bin
 DATAROOTDIR ?= ${PREFIX}/share
 MANDIR ?= ${DATAROOTDIR}/man
-SYSTEMDDIR ?= /usr/lib/systemd/system
+SYSTEMDDIR ?= ${PREFIX}/lib/systemd/system
 
 TARBALLDIR ?= target/release/tarball
 TARBALLFORMAT=tar.gz
