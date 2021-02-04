@@ -92,3 +92,10 @@ install:
     paths:
       - destdir
     expire_in: 1 day
+
+audit:
+  stage: test
+  needs: []
+  script:
+    - pacman -Syu --needed --noconfirm --cachedir "${PACMAN_CACHE}" cargo-audit
+    - cargo audit
