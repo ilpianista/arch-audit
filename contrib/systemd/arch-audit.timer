@@ -1,8 +1,9 @@
 [Unit]
-Description=Run arch-audit once a day
+Description=Daily audit of installed packages against known vulnerabilities
 
 [Timer]
 OnCalendar=daily
+RandomizedDelaySec=600
 Persistent=true
 
 [Install]
