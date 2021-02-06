@@ -274,7 +274,7 @@ fn print_all_affected(options: &Args, affected: &BTreeMap<&str, Affected>, db: D
     Ok(())
 }
 
-/// Prints "Package {pkg} is affected by {issues}. {severity}!" colored
+/// Prints "{pkg} is affected by {issues}. {severity}!" colored
 fn print_affected_colored(
     t: &mut term::StdoutTerminal,
     aff: &Affected,
@@ -282,7 +282,6 @@ fn print_affected_colored(
     db: Db,
 ) -> Result<()> {
     // Bold package
-    write!(t, "Package ")?;
     write_with_colours(t, &aff.package, options, None, Some(term::Attr::Bold))?;
     // Normal "is affected by {issues}"
     write!(t, " is affected by {}. ", aff.kind.join(", "))?;

@@ -38,15 +38,15 @@ Completions are generated using the `completions` subcommand of `arch-audit` and
 ## Example output
 
     $ arch-audit
-    Package bzip2 is affected by CVE-2016-3189. Medium risk!
-    Package curl is affected by CVE-2016-9594, CVE-2016-9586. Update to 7.52.1-1!
-    Package gst-plugins-bad is affected by CVE-2016-9447, CVE-2016-9446, CVE-2016-9445. High risk!
-    Package jasper is affected by CVE-2016-8886. Medium risk!
-    Package libimobiledevice is affected by CVE-2016-5104. Low risk!
-    Package libtiff is affected by CVE-2015-7554. Critical risk!
-    Package libusbmuxd is affected by CVE-2016-5104. Low risk!
-    Package openjpeg2 is affected by CVE-2016-9118, CVE-2016-9117, CVE-2016-9116, CVE-2016-9115, CVE-2016-9114, CVE-2016-9113. High risk!
-    Package openssl is affected by CVE-2016-7055. Low risk!
+    bzip2 is affected by CVE-2016-3189. Medium risk!
+    curl is affected by CVE-2016-9594, CVE-2016-9586. Update to 7.52.1-1!
+    gst-plugins-bad is affected by CVE-2016-9447, CVE-2016-9446, CVE-2016-9445. High risk!
+    jasper is affected by CVE-2016-8886. Medium risk!
+    libimobiledevice is affected by CVE-2016-5104. Low risk!
+    libtiff is affected by CVE-2015-7554. Critical risk!
+    libusbmuxd is affected by CVE-2016-5104. Low risk!
+    openjpeg2 is affected by CVE-2016-9118, CVE-2016-9117, CVE-2016-9116, CVE-2016-9115, CVE-2016-9114, CVE-2016-9113. High risk!
+    openssl is affected by CVE-2016-7055. Low risk!
 
     $ arch-audit --upgradable --quiet
     curl>=7.52.1-1
