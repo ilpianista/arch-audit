@@ -76,7 +76,7 @@ uninstall:
 release: all
 	$(INSTALL) -d $(TARBALLDIR)
 	@read -p 'version> ' TAG && \
-		$(SED) "s|version = .*|version = \"$$TAG\"|" -i Cargo.toml && \
+		$(SED) -E "s|^version = .*|version = \"$$TAG\"|" -i Cargo.toml && \
 		$(CARGO) build --release && \
 		$(GIT) commit --gpg-sign --message "version: release $$TAG" Cargo.toml Cargo.lock && \
 		$(GIT) tag --sign --message "version: release $$TAG" $$TAG && \
