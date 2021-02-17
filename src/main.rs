@@ -319,7 +319,7 @@ fn print_affected_colored(
             write!(t, "!")?;
         } else if aff.status == Status::Testing && options.testing {
             // Print: Update to {} from the testing repos!"
-            write!(t, " Update to at least")?;
+            write!(t, " Update to at least ")?;
             write_with_colours(t, version, options, Some(color::GREEN), Some(Attr::Bold))?;
             write!(t, " from the testing repos!")?;
         }
