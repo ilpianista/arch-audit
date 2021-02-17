@@ -186,7 +186,7 @@ const fn is_status_shown(status: Status, options: &Args) -> bool {
         Status::NotAffected => false,
         Status::Vulnerable => !options.upgradable,
         Status::Fixed => true,
-        Status::Testing => options.testing,
+        Status::Testing => !options.upgradable || options.testing,
     }
 }
 
@@ -663,16 +663,16 @@ mod tests {
     fn test_is_status_shown_no_testing() {
         assert_eq!(
             false,
-            is_status_shown(Status::Testing, &Fixture::options(false, false))
-        );
-        assert_eq!(
-            false,
             is_status_shown(Status::Testing, &Fixture::options(true, false))
         );
     }
 
     #[test]
     fn test_is_status_shown_testing() {
+        assert!(is_status_shown(
+            Status::Testing,
+            &Fixture::options(false, false)
+        ));
         assert!(is_status_shown(
             Status::Testing,
             &Fixture::options(false, true)
