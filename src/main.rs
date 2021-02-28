@@ -19,7 +19,6 @@ use std::str;
 use alpm::{Alpm, Db, Version};
 use anyhow::{Context, Result};
 use atty::Stream;
-use curl::easy::Easy;
 use log::{debug, info};
 use std::fs::read_to_string;
 use structopt::StructOpt;
@@ -28,12 +27,13 @@ use term::{color, Attr};
 use term::{StdoutTerminal, TerminfoTerminal};
 use url::Url;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     let args = Args::from_args();
 
     env_logger::init();
 
-    if let Err(err) = run(args) {
+    if let Err(err) = run(args).await {
         eprintln!("Error: {}", err);
         for cause in err.chain().skip(1) {
             eprintln!("Because: {}", cause);
@@ -42,13 +42,15 @@ fn main() {
     }
 }
 
-fn run(args: Args) -> Result<()> {
+async fn run(args: Args) -> Result<()> {
     if let Some(SubCommand::Completions(completions)) = args.subcommand {
         args::gen_completions(&completions)?;
         return Ok(());
     }
 
-    let avgs = get_avg_json(args.source.as_str()).context("failed to get AVG json")?;
+    let avgs = get_avg_json(args.source.as_str())
+        .await
+        .context("failed to get AVG json")?;
     let avgs: Avgs = serde_json::from_str(&avgs).context("failed to parse json")?;
 
     let dbpath = args
@@ -95,31 +97,28 @@ fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-fn get_avg_json(from: &str) -> Result<String> {
+async fn get_avg_json(from: &str) -> Result<String> {
     let json = match Url::parse(from) {
-        Ok(url) => fetch_avg_json(&url).context("failed to fetch AVGs from URL")?,
+        Ok(url) => fetch_avg_json(&url)
+            .await
+            .context("failed to fetch AVGs from URL")?,
         Err(_) => read_to_string(from).context("failed to read AVGs from file")?,
     };
     Ok(json)
 }
 
-fn fetch_avg_json(url: &Url) -> Result<String> {
-    let mut avgs = Vec::new();
+async fn fetch_avg_json(url: &Url) -> Result<String> {
     info!("Downloading AVGs from {}", url);
 
-    let mut easy = Easy::new();
-    easy.fail_on_error(true)?;
-    easy.follow_location(true)?;
-    easy.url(url.as_str())?;
-    let mut transfer = easy.transfer();
-    transfer.write_function(|data| {
-        avgs.extend(data);
-        Ok(data.len())
-    })?;
-    transfer.perform()?;
-    drop(transfer);
+    let json = reqwest::get(url.as_str())
+        .await
+        .context("Failed to send request")?
+        .error_for_status()
+        .context("Server replied with error")?
+        .text()
+        .await
+        .context("Failed to download response body")?;
 
-    let json = String::from_utf8(avgs).context("failed to decode utf8")?;
     Ok(json)
 }
 
