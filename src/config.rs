@@ -8,6 +8,7 @@ const DEFAULT_URL: &str = "https://security.archlinux.org/all.json";
 
 pub struct Config {
     pub source: String,
+    pub proxy: Option<String>,
 }
 
 impl Config {
@@ -31,10 +32,15 @@ impl Config {
 
         let mut config = Self {
             source: merged.network.source.unwrap_or_else(|| DEFAULT_URL.into()),
+            proxy: merged.network.proxy,
         };
 
         if let Some(source) = &args.source {
             config.source = source.to_string();
+        }
+
+        if let Some(proxy) = &args.proxy {
+            config.proxy = Some(proxy.to_string());
         }
 
         Ok(config)

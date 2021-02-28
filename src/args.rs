@@ -41,6 +41,9 @@ pub struct Args {
     /// Specify the URL or file path to the security tracker json data
     #[structopt(long)]
     pub source: Option<String>,
+    /// Send requests through a proxy
+    #[structopt(long)]
+    pub proxy: Option<String>,
     /// Specify how to sort the output
     #[structopt(long, use_delimiter = true, possible_values = &SortBy::VARIANTS, default_value = &SORT_BY_DEFAULT_VALUE)]
     pub sort: Vec<SortBy>,
