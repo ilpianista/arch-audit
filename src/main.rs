@@ -24,6 +24,7 @@ use std::str;
 
 use alpm::{Alpm, Db, Version};
 use atty::Stream;
+use reqwest::{ClientBuilder, Proxy};
 use std::fs::read_to_string;
 use structopt::StructOpt;
 use term::terminfo::TermInfo;
@@ -105,7 +106,7 @@ async fn run(args: Args) -> Result<()> {
 
 async fn get_avg_json(config: &Config) -> Result<String> {
     let json = match Url::parse(&config.source) {
-        Ok(url) => fetch_avg_json(&url)
+        Ok(url) => fetch_avg_json(&url, config)
             .await
             .context("failed to fetch AVGs from URL")?,
         Err(_) => read_to_string(&config.source).context("failed to read AVGs from file")?,
@@ -113,10 +114,19 @@ async fn get_avg_json(config: &Config) -> Result<String> {
     Ok(json)
 }
 
-async fn fetch_avg_json(url: &Url) -> Result<String> {
+async fn fetch_avg_json(url: &Url, config: &Config) -> Result<String> {
     info!("Downloading AVGs from {}", url);
 
-    let json = reqwest::get(url.as_str())
+    let mut client = ClientBuilder::new();
+    if let Some(proxy) = &config.proxy {
+        let proxy = Proxy::all(proxy)?;
+        client = client.proxy(proxy);
+    }
+    let client = client.build()?;
+
+    let json = client
+        .get(url.as_str())
+        .send()
         .await
         .context("Failed to send request")?
         .error_for_status()
@@ -498,6 +508,7 @@ mod tests {
                 show_cve: false,
                 sort: vec![],
                 source: None,
+                proxy: None,
                 subcommand: None,
             }
         }
