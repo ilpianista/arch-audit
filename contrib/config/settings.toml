@@ -1,0 +1,6 @@
+[network]
+## Configure the url for security advisories.
+## Local paths are supported too.
+#source = "https://security.archlinux.org/all.json"
+## Send all requests through a proxy.
+#proxy = "socks5://127.0.0.1:9050"
