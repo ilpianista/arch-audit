@@ -39,8 +39,8 @@ pub struct Args {
     #[structopt(long, short = "f")]
     pub format: Option<String>,
     /// Specify the URL or file path to the security tracker json data
-    #[structopt(long, default_value = "https://security.archlinux.org/all.json")]
-    pub source: String,
+    #[structopt(long)]
+    pub source: Option<String>,
     /// Specify how to sort the output
     #[structopt(long, use_delimiter = true, possible_values = &SortBy::VARIANTS, default_value = &SORT_BY_DEFAULT_VALUE)]
     pub sort: Vec<SortBy>,

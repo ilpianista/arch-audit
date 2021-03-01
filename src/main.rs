@@ -5,6 +5,12 @@ extern crate strum_macros;
 use args::*;
 mod args;
 
+use config::*;
+mod config;
+
+use errors::*;
+mod errors;
+
 use types::*;
 mod types;
 
@@ -17,9 +23,7 @@ use std::process::exit;
 use std::str;
 
 use alpm::{Alpm, Db, Version};
-use anyhow::{Context, Result};
 use atty::Stream;
-use log::{debug, info};
 use std::fs::read_to_string;
 use structopt::StructOpt;
 use term::terminfo::TermInfo;
@@ -48,7 +52,9 @@ async fn run(args: Args) -> Result<()> {
         return Ok(());
     }
 
-    let avgs = get_avg_json(args.source.as_str())
+    let config = Config::load(&args).context("Failed to load config")?;
+
+    let avgs = get_avg_json(&config)
         .await
         .context("failed to get AVG json")?;
     let avgs: Avgs = serde_json::from_str(&avgs).context("failed to parse json")?;
@@ -97,12 +103,12 @@ async fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-async fn get_avg_json(from: &str) -> Result<String> {
-    let json = match Url::parse(from) {
+async fn get_avg_json(config: &Config) -> Result<String> {
+    let json = match Url::parse(&config.source) {
         Ok(url) => fetch_avg_json(&url)
             .await
             .context("failed to fetch AVGs from URL")?,
-        Err(_) => read_to_string(from).context("failed to read AVGs from file")?,
+        Err(_) => read_to_string(&config.source).context("failed to read AVGs from file")?,
     };
     Ok(json)
 }
@@ -447,7 +453,6 @@ mod tests {
     use super::*;
     use crate::{types, Args};
     use alpm::Alpm;
-    use anyhow::{Context, Result};
     use std::fs::{create_dir, File};
     use std::io::Write;
     use tempfile::Builder as TempfileBuilder;
@@ -492,7 +497,7 @@ mod tests {
                 testing,
                 show_cve: false,
                 sort: vec![],
-                source: "".to_string(),
+                source: None,
                 subcommand: None,
             }
         }

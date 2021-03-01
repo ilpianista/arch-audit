@@ -29,6 +29,8 @@ strum = "^0.20"
 strum_macros = "^0.20"
 url = "^2.2"
 lazy_static = "1.4"
+toml = "0.5.8"
+dirs-next = "2.0.0"
 
 [dev-dependencies]
 tempfile = "^3.2"
