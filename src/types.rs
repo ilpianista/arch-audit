@@ -1,8 +1,8 @@
 use std::fmt;
 
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Severity {
     Unknown,
     Low,
@@ -41,7 +41,7 @@ impl Severity {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Status {
     Unknown,
     #[serde(rename = "Not affected")]
@@ -74,7 +74,7 @@ pub struct Avg {
     pub issues: Vec<String>,
 }
 
-#[derive(PartialOrd, Ord, PartialEq, Eq)]
+#[derive(PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Affected {
     pub package: String,
     pub cves: Vec<String>,

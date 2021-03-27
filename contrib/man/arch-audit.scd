@@ -53,6 +53,9 @@ See https://wiki.archlinux.org/index.php/Official_repositories#Testing_repositor
 
 	%r	required by (only when -r is also used)
 
+*--json*
+	Print results as json object.
+
 *--proxy* [_PROXY_]
 	Send requests through a proxy. The format looks like 'socks5://127.0.0.1:9050'.
 

@@ -282,8 +282,12 @@ fn print_all_affected(options: &Args, affected: &BTreeMap<&str, Affected>, db: D
     let mut affected = affected.values().into_iter().collect::<Vec<&Affected>>();
     sort_affected(&mut affected, &options.sort);
 
-    for aff in affected {
-        print_affected(options, t.as_mut(), aff, db)?;
+    if options.json {
+        println!("{}", serde_json::to_string(&affected)?);
+    } else {
+        for aff in affected {
+            print_affected(options, t.as_mut(), aff, db)?;
+        }
     }
 
     Ok(())
@@ -501,6 +505,7 @@ mod tests {
                 color: Color::Never,
                 dbpath: Default::default(),
                 format: None,
+                json: false,
                 quiet: 0,
                 recursive: 0,
                 upgradable,
