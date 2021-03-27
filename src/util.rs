@@ -1,5 +1,5 @@
 use crate::args::SortBy;
-use crate::Affected;
+use crate::types::Affected;
 
 use std::cmp;
 
