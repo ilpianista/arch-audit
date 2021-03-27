@@ -38,45 +38,32 @@ async fn main() {
     }
 }
 
-async fn run(args: Args) -> Result<()> {
-    if let Some(SubCommand::Completions(completions)) = args.subcommand {
-        gen_completions(&completions)?;
-        return Ok(());
+fn retain_only_relevant_avgs_and_packages(avgs: &mut Avgs, args: &Args, db: Db) {
+    for avg in &mut avgs.avgs {
+        if avg.status == Status::NotAffected {
+            // if arch isn't affected, no package is going to affect our system
+            avg.packages.clear();
+        } else {
+            let status = avg.status;
+            let fixed = &avg.fixed;
+            avg.packages.retain(|pkg| {
+                system_is_affected(db, pkg, fixed) &&
+                    is_status_shown(status, args)
+            });
+        }
     }
+    // remove all advisories with no package affecting our system
+    avgs.avgs.retain(|avg| !avg.packages.is_empty());
+}
 
-    let config = Config::load(&args).context("Failed to load config")?;
-
-    let avgs = get_avg_json(&config)
-        .await
-        .context("failed to get AVG json")?;
-    let avgs: Avgs = serde_json::from_str(&avgs).context("failed to parse json")?;
-
-    let dbpath = args
-        .dbpath
-        .to_str()
-        .context("failed to convert dbpath to str")?;
-    let pacman = Alpm::new("/", dbpath)
-        .with_context(|| format!("failed to initial alpm: root='/' dbpath='{}'", dbpath))?;
-    let db = pacman.localdb();
-
+fn squash_avgs(avgs: &Avgs) -> BTreeMap<&str, Affected> {
     let mut affected = BTreeMap::new();
 
     for avg in &avgs.avgs {
-        if avg.status == Status::NotAffected {
-            continue;
-        }
-
         for pkg in &avg.packages {
-            if !system_is_affected(db, pkg, avg) {
-                continue;
-            }
-            if !is_status_shown(avg.status, &args) {
-                continue;
-            }
-
             let aff = affected
                 .entry(pkg.as_str())
-                .or_insert_with(|| Affected::new(pkg, avg));
+                .or_insert_with(|| Affected::new(pkg));
             aff.severity = aff.severity.max(avg.severity);
             aff.cves.extend(avg.issues.clone());
             aff.kind.push(avg.kind.clone());
@@ -91,7 +78,39 @@ async fn run(args: Args) -> Result<()> {
         }
     }
 
-    print_all_affected(&args, &affected, db)?;
+    affected
+}
+
+async fn run(args: Args) -> Result<()> {
+    if let Some(SubCommand::Completions(completions)) = args.subcommand {
+        gen_completions(&completions)?;
+        return Ok(());
+    }
+
+    let config = Config::load(&args).context("Failed to load config")?;
+
+    let avgs = get_avg_json(&config)
+        .await
+        .context("failed to get AVG json")?;
+    let mut avgs: Avgs = serde_json::from_str(&avgs).context("failed to parse json")?;
+
+    let dbpath = args
+        .dbpath
+        .to_str()
+        .context("failed to convert dbpath to str")?;
+    let pacman = Alpm::new("/", dbpath)
+        .with_context(|| format!("failed to initial alpm: root='/' dbpath='{}'", dbpath))?;
+    let db = pacman.localdb();
+
+    retain_only_relevant_avgs_and_packages(&mut avgs, &args, db);
+
+    if args.json {
+        print_json(&avgs)?;
+    } else {
+        let affected = squash_avgs(&avgs);
+        print_all_affected(&args, &affected, db)?;
+    }
+
     Ok(())
 }
 
@@ -163,8 +182,8 @@ fn _get_required_by_recursive(
     pkgs.extend(new_pkgs);
 }
 
-/// Given a package and an `avg::AVG`, returns true if the system is affected
-fn system_is_affected(db: Db, pkg: &str, avg: &Avg) -> bool {
+/// Given a package and the `fixed` version, returns true if the system is affected
+fn system_is_affected(db: Db, pkg: &str, fixed: &Option<String>) -> bool {
     let pkg = if let Ok(pkg) = db.pkg(pkg) {
         info!(
             "Found installed version {} for package {}",
@@ -177,7 +196,7 @@ fn system_is_affected(db: Db, pkg: &str, avg: &Avg) -> bool {
         return false;
     };
 
-    if let Some(ref fixed) = avg.fixed {
+    if let Some(ref fixed) = fixed {
         info!("Comparing with fixed version {}", fixed);
         pkg.version() < fixed
     } else {
@@ -194,6 +213,11 @@ const fn is_status_shown(status: Status, options: &Args) -> bool {
         Status::Fixed => true,
         Status::Testing => !options.upgradable || options.testing,
     }
+}
+
+fn print_json(avgs: &Avgs) -> Result<()> {
+    println!("{}", serde_json::to_string(&avgs.avgs)?);
+    Ok(())
 }
 
 /// Print a single Affected
@@ -273,12 +297,8 @@ fn print_all_affected(options: &Args, affected: &BTreeMap<&str, Affected>, db: D
     let mut affected = affected.values().into_iter().collect::<Vec<&Affected>>();
     sort_affected(&mut affected, &options.sort);
 
-    if options.json {
-        println!("{}", serde_json::to_string(&affected)?);
-    } else {
-        for aff in affected {
-            print_affected(options, t.as_mut(), aff, db)?;
-        }
+    for aff in affected {
+        print_affected(options, t.as_mut(), aff, db)?;
     }
 
     Ok(())
@@ -524,7 +544,7 @@ mod tests {
             kind: String::new(),
         };
 
-        assert!(system_is_affected(db, "filesystem", &avg));
+        assert!(system_is_affected(db, "filesystem", &avg.fixed));
         Ok(())
     }
 
@@ -543,7 +563,7 @@ mod tests {
             kind: String::new(),
         };
 
-        assert_eq!(false, system_is_affected(db, "filesystem", &avg));
+        assert_eq!(false, system_is_affected(db, "filesystem", &avg.fixed));
         Ok(())
     }
 
@@ -562,7 +582,7 @@ mod tests {
             kind: String::new(),
         };
 
-        assert_eq!(false, system_is_affected(db, "doesnotexit", &avg));
+        assert_eq!(false, system_is_affected(db, "doesnotexit", &avg.fixed));
         Ok(())
     }
 
@@ -581,7 +601,7 @@ mod tests {
             kind: String::new(),
         };
 
-        assert_eq!(false, system_is_affected(db, "doesnotexit", &avg));
+        assert_eq!(false, system_is_affected(db, "doesnotexit", &avg.fixed));
         Ok(())
     }
 
