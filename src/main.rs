@@ -85,7 +85,7 @@ async fn run(args: Args) -> Result<()> {
 
             let aff = affected
                 .entry(pkg.as_str())
-                .or_insert_with(|| Affected::new(pkg));
+                .or_insert_with(|| Affected::new(pkg, avg));
             aff.severity = aff.severity.max(avg.severity);
             aff.cves.extend(avg.issues.clone());
             aff.kind.push(avg.kind.clone());
@@ -525,6 +525,7 @@ mod tests {
         let db = alpm.localdb();
 
         let avg = Avg {
+            name: "AVG-31337".to_string(),
             issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
             fixed: Some("3009.0.0".to_string()),
             severity: types::Severity::Unknown,
@@ -543,6 +544,7 @@ mod tests {
         let db = alpm.localdb();
 
         let avg = Avg {
+            name: "AVG-31337".to_string(),
             issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
             fixed: Some("2000.0.0-1".to_string()),
             severity: types::Severity::Unknown,
@@ -561,6 +563,7 @@ mod tests {
         let db = alpm.localdb();
 
         let avg = Avg {
+            name: "AVG-31337".to_string(),
             issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
             fixed: Some("3000.0.0".to_string()),
             severity: types::Severity::Unknown,
@@ -579,6 +582,7 @@ mod tests {
         let db = alpm.localdb();
 
         let avg = Avg {
+            name: "AVG-31337".to_string(),
             issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
             fixed: Some("2021.01.19-1".to_string()),
             severity: types::Severity::Unknown,

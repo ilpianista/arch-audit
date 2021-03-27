@@ -65,6 +65,7 @@ pub struct Avgs {
 
 #[derive(Deserialize, Clone, Default)]
 pub struct Avg {
+    pub name: String,
     pub packages: Vec<String>,
     pub status: Status,
     #[serde(rename = "type")]
@@ -76,6 +77,7 @@ pub struct Avg {
 
 #[derive(PartialOrd, Ord, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Affected {
+    pub name: String,
     pub package: String,
     pub cves: Vec<String>,
     pub severity: Severity,
@@ -85,8 +87,9 @@ pub struct Affected {
 }
 
 impl Affected {
-    pub fn new(package: &str) -> Self {
+    pub fn new(package: &str, avg: &Avg) -> Self {
         Self {
+            name: avg.name.to_string(),
             package: package.to_string(),
             cves: Vec::new(),
             kind: Vec::new(),
