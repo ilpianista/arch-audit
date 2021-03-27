@@ -38,6 +38,9 @@ pub struct Args {
     /// Specify a format to control the output. Placeholders are %n (pkgname), %c (CVEs), %v (fixed version), %t (type), %s (severity), and %r (required by, only when -r is also used).
     #[structopt(long, short = "f")]
     pub format: Option<String>,
+    /// Print json output
+    #[structopt(long)]
+    pub json: bool,
     /// Specify the URL or file path to the security tracker json data
     #[structopt(long)]
     pub source: Option<String>,
