@@ -2,20 +2,11 @@
 extern crate strum;
 extern crate strum_macros;
 
-use args::*;
-mod args;
-
-use config::*;
-mod config;
-
-use errors::*;
-mod errors;
-
-use types::*;
-mod types;
-
-use util::*;
-mod util;
+use arch_audit::args::*;
+use arch_audit::config::*;
+use arch_audit::errors::*;
+use arch_audit::types::*;
+use arch_audit::util::*;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
@@ -90,7 +81,7 @@ fn squash_avgs(avgs: &Avgs) -> BTreeMap<&str, Affected> {
 
 async fn run(args: Args) -> Result<()> {
     if let Some(SubCommand::Completions(completions)) = args.subcommand {
-        args::gen_completions(&completions)?;
+        gen_completions(&completions)?;
         return Ok(());
     }
 
@@ -483,7 +474,6 @@ fn write_with_colours(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{types, Args};
     use alpm::Alpm;
     use std::fs::{create_dir, File};
     use std::io::Write;
@@ -546,8 +536,8 @@ mod tests {
             name: "AVG-31337".to_string(),
             issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
             fixed: Some("3009.0.0".to_string()),
-            severity: types::Severity::Unknown,
-            status: types::Status::Unknown,
+            severity: Severity::Unknown,
+            status: Status::Unknown,
             packages: Vec::new(),
             kind: String::new(),
         };
@@ -565,8 +555,8 @@ mod tests {
             name: "AVG-31337".to_string(),
             issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
             fixed: Some("2000.0.0-1".to_string()),
-            severity: types::Severity::Unknown,
-            status: types::Status::Unknown,
+            severity: Severity::Unknown,
+            status: Status::Unknown,
             packages: Vec::new(),
             kind: String::new(),
         };
@@ -584,8 +574,8 @@ mod tests {
             name: "AVG-31337".to_string(),
             issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
             fixed: Some("3000.0.0".to_string()),
-            severity: types::Severity::Unknown,
-            status: types::Status::Unknown,
+            severity: Severity::Unknown,
+            status: Status::Unknown,
             packages: Vec::new(),
             kind: String::new(),
         };
@@ -603,8 +593,8 @@ mod tests {
             name: "AVG-31337".to_string(),
             issues: vec!["CVE-1".to_string(), "CVE-2".to_string()],
             fixed: Some("2021.01.19-1".to_string()),
-            severity: types::Severity::Unknown,
-            status: types::Status::Unknown,
+            severity: Severity::Unknown,
+            status: Status::Unknown,
             packages: Vec::new(),
             kind: String::new(),
         };
