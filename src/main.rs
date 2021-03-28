@@ -23,6 +23,8 @@ use term::{color, Attr};
 use term::{StdoutTerminal, TerminfoTerminal};
 use url::Url;
 
+static APP_USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"),);
+
 #[tokio::main]
 async fn main() {
     let args = Args::from_args();
@@ -125,7 +127,7 @@ async fn get_avg_json(config: &Config) -> Result<String> {
 async fn fetch_avg_json(url: &Url, config: &Config) -> Result<String> {
     info!("Downloading AVGs from {}", url);
 
-    let mut client = ClientBuilder::new();
+    let mut client = ClientBuilder::new().user_agent(APP_USER_AGENT);
     if let Some(proxy) = &config.proxy {
         let proxy = Proxy::all(proxy)?;
         client = client.proxy(proxy);
