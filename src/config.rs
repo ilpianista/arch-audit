@@ -43,6 +43,10 @@ impl Config {
             config.proxy = Some(proxy.to_string());
         }
 
+        if args.no_proxy {
+            config.proxy = None;
+        }
+
         Ok(config)
     }
 }

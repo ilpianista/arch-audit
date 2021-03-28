@@ -522,6 +522,7 @@ mod tests {
                 sort: vec![],
                 source: None,
                 proxy: None,
+                no_proxy: false,
                 subcommand: None,
             }
         }
