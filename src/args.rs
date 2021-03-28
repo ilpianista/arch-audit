@@ -44,6 +44,9 @@ pub struct Args {
     /// Send requests through a proxy
     #[structopt(long)]
     pub proxy: Option<String>,
+    /// Do not use a proxy even if one is configured
+    #[structopt(long)]
+    pub no_proxy: bool,
     /// Specify how to sort the output
     #[structopt(long, use_delimiter = true, possible_values = &SortBy::VARIANTS, default_value = &SORT_BY_DEFAULT_VALUE)]
     pub sort: Vec<SortBy>,
