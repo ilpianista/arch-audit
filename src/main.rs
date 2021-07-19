@@ -198,7 +198,7 @@ fn system_is_affected(db: Db, pkg: &str, fixed: &Option<String>) -> bool {
 
     if let Some(ref fixed) = fixed {
         info!("Comparing with fixed version {}", fixed);
-        pkg.version() < fixed
+        pkg.version() < Version::new(fixed.clone())
     } else {
         true
     }

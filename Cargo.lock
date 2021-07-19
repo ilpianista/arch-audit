@@ -32,9 +32,9 @@ dependencies = [
 
 [[package]]
 name = "alpm"
-version = "1.1.8"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "393f4db567eb8e341b765f72e8ea955881b617c2fba38590d67671959a8ab5e3"
+checksum = "fb56c7e8cb05fcc3d089ae26c14a5f44902877cb23bdc76fffd04e17c4985de0"
 dependencies = [
  "alpm-sys",
  "bitflags",
@@ -42,9 +42,12 @@ dependencies = [
 
 [[package]]
 name = "alpm-sys"
-version = "1.1.5"
+version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ce0e5a21bca8d7aaf0d2eca91f02e0c4841b6f9fd3f64bdf68169e381a91c22"
+checksum = "d8edc7df020c1709861e4022ce953e6b7bfa4c85af150e3d4bbd51c7983f5744"
+dependencies = [
+ "pkg-config",
+]
 
 [[package]]
 name = "ansi_term"
@@ -661,6 +664,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
+name = "pkg-config"
+version = "0.3.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3831453b3449ceb48b6d9c7ad7c96d5ea673e9b470a1dc578c2ce6521230884c"
+
+[[package]]
 name = "ppv-lite86"
 version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1035,15 +1044,15 @@ dependencies = [
 
 [[package]]
 name = "strum"
-version = "0.20.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7318c509b5ba57f18533982607f24070a55d353e90d4cae30c467cdb2ad5ac5c"
+checksum = "aaf86bbcfd1fa9670b7a129f64fc0c9fcbbfe4f1bc4210e9e98fe71ffc12cde2"
 
 [[package]]
 name = "strum_macros"
-version = "0.20.1"
+version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee8bc6b87a5112aeeab1f4a9f7ab634fe6cbefc4850006df31267f4cfb9e3149"
+checksum = "d06aaeeee809dbc59eb4556183dd927df67db1540de5be8d3ec0b6636358a5ec"
 dependencies = [
  "heck",
  "proc-macro2",
