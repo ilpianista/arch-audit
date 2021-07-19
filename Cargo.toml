@@ -17,9 +17,9 @@ name = "arch-audit"
 alpm = "^2.0"
 anyhow = "^1.0"
 atty = "^0.2"
-reqwest = { version = "0.11", default-features = false, features = ["rustls-tls-native-roots", "socks", "gzip", "brotli"] }
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-env_logger = "^0.8"
+reqwest = { version = "^0.11", default-features = false, features = ["rustls-tls-native-roots", "socks", "gzip", "brotli"] }
+tokio = { version = "^1", features = ["macros", "rt-multi-thread"] }
+env_logger = "^0.9"
 log = "^0.4"
 serde = { version = "^1.0", features = ["derive"] }
 serde_json = "^1.0"
