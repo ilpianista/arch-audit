@@ -105,6 +105,6 @@ pub struct Completions {
 }
 
 pub fn gen_completions(args: &Completions) -> Result<()> {
-    Args::clap().gen_completions_to("dfrs", args.shell, &mut stdout());
+    Args::clap().gen_completions_to("arch-audit", args.shell, &mut stdout());
     Ok(())
 }
