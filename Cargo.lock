@@ -66,7 +66,7 @@ checksum = "28ae2b3dec75a406790005a200b1bd89785afc02517a00ca99ecfe093ee9e6cf"
 
 [[package]]
 name = "arch-audit"
-version = "0.1.19"
+version = "0.1.20"
 dependencies = [
  "alpm",
  "anyhow",
