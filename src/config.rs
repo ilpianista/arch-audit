@@ -53,6 +53,7 @@ impl Config {
 
 #[derive(Debug, Default, Deserialize)]
 pub struct ConfigFile {
+    #[serde(default)]
     network: NetworkConfigFile,
 }
 
