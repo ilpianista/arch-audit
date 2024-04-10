@@ -23,7 +23,7 @@ impl Config {
 
         for path in configs {
             let c = ConfigFile::load_from(&path)
-                .with_context(|| anyhow!("Failed to load config file: {:?}"))?;
+                .with_context(|| anyhow!("Failed to load config file: {:?}", path))?;
             if let Some(config) = c {
                 debug!("Applying config from {:?}", path);
                 merged.update(config);
